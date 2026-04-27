@@ -10,6 +10,12 @@
       align-items: center;
       justify-content: center;
       background: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    
+    a {
+      text-decoration: none;
+      cursor: pointer;
     }
     
     img {
@@ -17,9 +23,16 @@
       max-height: 120%;
       width: auto;
       height: 50vh;
+      transition: opacity 0.3s ease;
+    }
+    
+    a:hover img {
+      opacity: 0.8;
     }
   </style>
 </head>
 <body>
-  <img src="acl.svg" alt="">
+  <a href="/contact.html">
+    <img src="acl.svg" alt="Contact Admin">
+  </a>
 </body>

@@ -1,0 +1,360 @@
+<!DOCTYPE HTML>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="acl.svg">
+  <title>Feed - alphacoin.uk</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      border-bottom: 2px solid #e0e0e0;
+      padding: 20px;
+      margin: -20px -20px 20px -20px;
+      padding-bottom: 20px;
+    }
+
+    .header-content {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .logo {
+      width: 50px;
+      height: 50px;
+      flex-shrink: 0;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      flex: 1;
+      width: 100%;
+    }
+
+    .feed {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .message-group {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .message-user {
+      background: #f9f9f9;
+      padding: 16px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .message-from {
+      font-weight: 600;
+      color: #333;
+      font-size: 15px;
+    }
+
+    .message-email {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .message-time {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .message-content {
+      color: #555;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message-admin {
+      background: #fafafa;
+      padding: 16px;
+      border-left: 4px solid #0066cc;
+    }
+
+    .admin-badge {
+      display: inline-block;
+      background: #0066cc;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .admin-content {
+      color: #333;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .no-response {
+      color: #999;
+      font-style: italic;
+      font-size: 14px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    .footer {
+      max-width: 900px;
+      margin: 40px auto 0;
+      padding: 20px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .footer a {
+      color: #0066cc;
+      text-decoration: none;
+      margin: 0 10px;
+      font-size: 14px;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .refresh-btn {
+      display: inline-block;
+      padding: 8px 16px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+
+    .refresh-btn:hover {
+      background: #0052a3;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div class="logo">
+        <img src="acl.svg" alt="alphacoin">
+      </div>
+      <h1>Public Feed</h1>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="feed" class="feed">
+      <div class="loading">Loading messages...</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="/">← Home</a>
+    <a href="/contact.html">Send Message →</a>
+    <br>
+    <button class="refresh-btn" onclick="loadMessages()">Refresh Feed</button>
+  </div>
+
+  <script>
+    async function loadMessages() {
+      const feedDiv = document.getElementById('feed');
+      feedDiv.innerHTML = '<div class="loading">Loading messages...</div>';
+
+      try {
+        const response = await fetch('/api/messages');
+        const messages = await response.json();
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+          feedDiv.innerHTML = `
+            <div class="empty-state">
+              <p>No messages yet.</p>
+              <p style="margin-top: 10px; font-size: 12px;">Be the first to reach out to Admin!</p>
+              <a href="/contact.html" style="display: inline-block; margin-top: 20px;">
+                <button class="refresh-btn">Send a Message</button>
+              </a>
+            </div>
+          `;
+          return;
+        }
+
+        feedDiv.innerHTML = '';
+        
+        // Messages are already sorted oldest first from the server
+        messages.forEach(msg => {
+          const messageGroup = document.createElement('div');
+          messageGroup.className = 'message-group';
+
+          const userMessage = document.createElement('div');
+          userMessage.className = 'message-user';
+
+          const header = document.createElement('div');
+          header.className = 'message-header';
+          header.innerHTML = `
+            <span>
+              <div class="message-from">${escapeHtml(msg.name)}</div>
+              <div class="message-email">${escapeHtml(msg.email)}</div>
+            </span>
+            <span class="message-time">${formatTime(msg.timestamp)}</span>
+          `;
+          userMessage.appendChild(header);
+
+          const content = document.createElement('div');
+          content.className = 'message-content';
+          content.textContent = msg.message;
+          userMessage.appendChild(content);
+
+          messageGroup.appendChild(userMessage);
+
+          if (msg.adminResponseHtml) {
+            const adminMessage = document.createElement('div');
+            adminMessage.className = 'message-admin';
+
+            const badge = document.createElement('div');
+            badge.className = 'admin-badge';
+            badge.textContent = 'ADMIN RESPONSE';
+
+            const adminContent = document.createElement('div');
+            adminContent.className = 'admin-content';
+            adminContent.innerHTML = msg.adminResponseHtml;
+
+            const time = document.createElement('div');
+            time.style.fontSize = '12px';
+            time.style.color = '#999';
+            time.style.marginTop = '8px';
+            time.textContent = formatTime(msg.adminResponseTime);
+
+            adminMessage.appendChild(badge);
+            adminMessage.appendChild(adminContent);
+            adminMessage.appendChild(time);
+
+            messageGroup.appendChild(adminMessage);
+          } else {
+            const noResponse = document.createElement('div');
+            noResponse.className = 'message-admin no-response';
+            noResponse.textContent = 'Awaiting Admin response...';
+            messageGroup.appendChild(noResponse);
+          }
+
+          feedDiv.appendChild(messageGroup);
+        });
+
+      } catch (error) {
+        feedDiv.innerHTML = '<div class="loading" style="color: red;">Error loading messages. Please refresh.</div>';
+        console.error('Error:', error);
+      }
+    }
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
+
+      // Less than 1 minute
+      if (diff < 60000) {
+        return 'just now';
+      }
+
+      // Less than 1 hour
+      if (diff < 3600000) {
+        const mins = Math.floor(diff / 60000);
+        return `${mins}m ago`;
+      }
+
+      // Less than 1 day
+      if (diff < 86400000) {
+        const hours = Math.floor(diff / 3600000);
+        return `${hours}h ago`;
+      }
+
+      // Less than 1 week
+      if (diff < 604800000) {
+        const days = Math.floor(diff / 86400000);
+        return `${days}d ago`;
+      }
+
+      // Format as date
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Load messages on page load
+    loadMessages();
+
+    // Auto-refresh every 30 seconds
+    setInterval(loadMessages, 30000);
+  </script>
+</body>
+</html>
