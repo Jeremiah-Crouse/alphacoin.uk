@@ -42,6 +42,8 @@ cp .env.example .env
 
 **Optional:**
 - Gmail integration requires `credentials.json` from Google Cloud Console
+  - **Note on OAuth:** Since the app is unverified, you must add your email (e.g., `eljpeg328@gmail.com`) to the **Test Users** list in the Google Cloud Console under *APIs & Services > OAuth consent screen*.
+  - **Redirect URI:** Ensure `http://localhost:3000/api/gmail/callback` is added to your OAuth 2.0 Client IDs in the console.
 
 ### 3. Start Server
 
@@ -160,7 +162,8 @@ GET    /api/health                - Health check
 - [ ] Add authentication for admin responses endpoint
 - [ ] Build admin dashboard UI
 - [ ] Implement Gmail inbox reading for auto-responses
-- [ ] Add database layer (replace JSON file)
+- [x] Support pagination for lazy loading
+- [ ] Migrate to SQLite (replace JSON file)
 - [ ] Set up email templates
 - [ ] Add rate limiting
 - [ ] Deploy to production

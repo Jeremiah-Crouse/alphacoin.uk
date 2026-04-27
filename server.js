@@ -21,6 +21,10 @@ const adminService = new AdminService();
 const emailService = new EmailService();
 const messageStore = new MessageStore();
 
+// Polling interval for Gmail (e.g., every 5 minutes)
+const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
+let gmailPollingIntervalId;
+
 // Routes
 
 // Serve static pages
@@ -36,6 +40,47 @@ app.get('/feed.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'feed.html'));
 });
 
+// API: Initiate Gmail OAuth flow
+app.get('/api/gmail/auth', (req, res) => {
+  try {
+    const authUrl = emailService.generateAuthUrl();
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Error generating Gmail auth URL:', error);
+    res.status(500).send('Failed to initiate Gmail authentication. Check server logs.');
+  }
+});
+
+// API: Gmail OAuth callback
+app.get('/api/gmail/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) {
+    return res.status(400).send('Authorization code not provided.');
+  }
+
+  try {
+    await emailService.getTokens(code);
+    res.send('Gmail authentication successful! You can close this tab.');
+    console.log('Gmail authentication successful. Starting email polling...');
+    startGmailPolling(); // Start polling after successful auth
+  } catch (error) {
+    console.error('Error getting Gmail tokens:', error);
+    res.status(500).send('Failed to authenticate with Gmail. Check server logs.');
+  }
+});
+
+// Helper to start Gmail polling
+function startGmailPolling() {
+  if (gmailPollingIntervalId) {
+    clearInterval(gmailPollingIntervalId); // Clear any existing interval
+  }
+  gmailPollingIntervalId = setInterval(pollIncomingEmails, GMAIL_POLLING_INTERVAL);
+  console.log(`Gmail polling started, checking every ${GMAIL_POLLING_INTERVAL / 1000} seconds.`);
+  // Run once immediately
+  pollIncomingEmails(); 
+}
+
+
 // API: Submit a message
 app.post('/api/messages', async (req, res) => {
   try {
@@ -45,15 +90,20 @@ app.post('/api/messages', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Store the message
-    const storedMessage = await messageStore.addMessage({
+    // Character limit check (e.g., 2000 characters)
+    if (message.length > 2000) {
+      return res.status(400).json({ error: 'Message is too long. Please limit your message to 2000 characters.' });
+    }
+
+    // Create a new message entry, starting a conversation
+    const newMessage = {
       name,
       email,
       message,
+      source: 'contact_form',
       timestamp: new Date(),
-      adminResponse: null,
-      adminResponseTime: null
-    });
+    };
+    const storedMessage = await messageStore.addMessage(newMessage);
 
     // Notify Admin (could be webhook, queue, or direct processing)
     await adminService.notifyNewMessage(storedMessage);
@@ -69,11 +119,10 @@ app.post('/api/messages', async (req, res) => {
     const sentHtml = await emailService.sendAdminResponse(storedMessage.email, storedMessage.name, generatedResponse);
     const responseHtml = emailService.markdownToHtml(generatedResponse);
     
-    // Store the response and the HTML
-    const updatedMessage = await messageStore.addResponse(storedMessage.id, generatedResponse, sentHtml, responseHtml);
+    // Add the AI's response to the conversation
+    const updatedMessage = await messageStore.addConversationEntry(storedMessage.id, 'admin', generatedResponse, responseHtml, sentHtml);
 
     console.log(`[System] Initial AI response sent to ${updatedMessage.email}\n`);
-
     res.json({ success: true, messageId: updatedMessage.id, adminResponse: updatedMessage.adminResponse, adminResponseHtml: updatedMessage.adminResponseHtml });
   } catch (error) {
     console.error('Error submitting message:', error);
@@ -84,7 +133,11 @@ app.post('/api/messages', async (req, res) => {
 // API: Get all messages and responses (for feed.html)
 app.get('/api/messages', async (req, res) => {
   try {
-    const messages = await messageStore.getAllMessages();
+    const { limit, before } = req.query;
+    const messages = await messageStore.getAllMessages(
+      limit ? parseInt(limit) : null,
+      before ? before : null
+    );
     res.json(messages);
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -108,7 +161,7 @@ app.post('/api/messages/:id/response', async (req, res) => {
     // Send response email to original sender
     const sentHtml = await emailService.sendAdminResponse(existingMessage.email, existingMessage.name, response);
     const responseHtml = emailService.markdownToHtml(response);
-    const updatedMessage = await messageStore.addResponse(id, response, sentHtml, responseHtml);
+    const updatedMessage = await messageStore.addConversationEntry(id, 'admin', response, responseHtml, sentHtml);
 
     res.json({ success: true, message: updatedMessage });
   } catch (error) {
@@ -142,8 +195,8 @@ app.post('/api/messages/:id/generate-response', async (req, res) => {
     const sentHtml = await emailService.sendAdminResponse(message.email, message.name, generatedResponse);
     const responseHtml = emailService.markdownToHtml(generatedResponse);
     
-    // Store the response and the HTML
-    const updatedMessage = await messageStore.addResponse(id, generatedResponse, sentHtml, responseHtml);
+    // Add the AI's response to the conversation
+    const updatedMessage = await messageStore.addConversationEntry(id, 'admin', generatedResponse, responseHtml, sentHtml);
 
     console.log(`[System] Response sent to ${updatedMessage.email}\n`);
 
@@ -171,8 +224,8 @@ app.post('/api/messages/generate-all-responses', async (req, res) => {
       try {
         const generatedResponse = await adminService.generateResponse(msg);
         const sentHtml = await emailService.sendAdminResponse(msg.email, msg.name, generatedResponse);
-        const responseHtml = emailService.markdownToHtml(generatedResponse);
-        const updatedMessage = await messageStore.addResponse(msg.id, generatedResponse, sentHtml, responseHtml);
+        const responseHtml = emailService.markdownToHtml(generatedResponse); // Render for feed
+        const updatedMessage = await messageStore.addConversationEntry(msg.id, 'admin', generatedResponse, responseHtml, sentHtml);
         results.push({ id: msg.id, success: true });
         console.log(`✓ Response sent to ${updatedMessage.email}`);
       } catch (error) {
@@ -195,8 +248,93 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
+// Function to poll incoming emails
+async function pollIncomingEmails() {
+  console.log('[Polling] Checking for new incoming emails...');
+  try {
+    const newEmails = await emailService.getNewEmails();
+
+    for (const email of newEmails) {
+      // Ignore empty emails to prevent AI from responding to noise or malformed content
+      if (!email.body || email.body.trim().length === 0) {
+        console.log(`[Polling] Skipping empty email from ${email.from.email}`);
+        await emailService.markEmailAsRead(email.id);
+        continue;
+      }
+
+      // Check if the email is a reply to an Admin-sent email
+      const replySubjectRegex = /^Re: Response to Your Message - alphacoin\.uk/;
+      const isReply = replySubjectRegex.test(email.subject) || email.inReplyTo;
+
+      let linkedMessage = null;
+
+      if (isReply) {
+        // Try to link by In-Reply-To header first (most reliable)
+        if (email.inReplyTo) {
+          linkedMessage = await messageStore.findMessageByEmailThreadId(email.inReplyTo);
+        }
+        // Fallback: try to link by subject and sender email
+        if (!linkedMessage) {
+          linkedMessage = await messageStore.findMessageBySubjectAndSender(email.subject.replace(replySubjectRegex, '').trim(), email.from.email);
+        }
+      }
+
+      if (linkedMessage) {
+        // It's a reply to an existing conversation
+        console.log(`[Polling] Found reply for message ID ${linkedMessage.id} from ${email.from.email}`);
+        await messageStore.addConversationEntry(linkedMessage.id, 'user', email.body, email.body, null, email.id, email.threadId);
+        
+        // Trigger AI response for the reply
+        const generatedResponse = await adminService.generateResponse(linkedMessage); // Pass the whole message for context
+        
+        // Mimic a "Reply" by using the original subject and adding the threading headers
+        const replySubject = email.subject.toLowerCase().startsWith('re:') ? email.subject : `Re: ${email.subject}`;
+        const sentHtml = await emailService.sendAdminResponse(email.from.email, email.from.name, generatedResponse, email.messageId, replySubject);
+        const responseHtml = emailService.markdownToHtml(generatedResponse);
+        await messageStore.addConversationEntry(linkedMessage.id, 'admin', generatedResponse, responseHtml, sentHtml);
+
+        console.log(`[Polling] AI responded to email reply from ${email.from.email}`);
+      } else {
+        // It's a new email, treat like a new contact form submission
+        console.log(`[Polling] Found new incoming email from ${email.from.email} (Subject: ${email.subject})`);
+        const newMessage = {
+          name: email.from.name,
+          email: email.from.email,
+          message: email.body,
+          source: 'email_inbox',
+          timestamp: email.date,
+          emailMessageId: email.id, // Store Gmail's message ID
+          emailThreadId: email.threadId, // Store Gmail's thread ID
+        };
+        const storedMessage = await messageStore.addMessage(newMessage);
+
+        // Trigger AI response for the new email
+        const generatedResponse = await adminService.generateResponse(storedMessage);
+        const sentHtml = await emailService.sendAdminResponse(storedMessage.email, storedMessage.name, generatedResponse, email.messageId);
+        const responseHtml = emailService.markdownToHtml(generatedResponse);
+        await messageStore.addConversationEntry(storedMessage.id, 'admin', generatedResponse, responseHtml, sentHtml);
+
+        console.log(`[Polling] AI responded to new email from ${email.from.email}`);
+      }
+
+      // Mark email as read to avoid reprocessing in the next poll
+      await emailService.markEmailAsRead(email.id); 
+    }
+  } catch (error) {
+    console.error('[Polling] Error polling incoming emails:', error);
+  }
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Admin service running on http://localhost:${PORT}`);
   console.log(`Admin model: ${process.env.ADMIN_MODEL || 'Not configured'}`);
+
+  // Start Gmail polling if credentials are set up
+  // This will attempt to load token.json, if it fails, user needs to auth via /api/gmail/auth
+  if (emailService.oauth2Client && emailService.oauth2Client.credentials.refresh_token) {
+    startGmailPolling();
+  } else {
+    console.warn('Gmail polling not started. Please authorize Gmail via /api/gmail/auth if you want to read incoming emails.');
+  }
 });

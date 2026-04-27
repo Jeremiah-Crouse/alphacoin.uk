@@ -50,27 +50,52 @@ class MessageStore {
    * Add a new message
    */
   async addMessage(messageData) {
-    const message = {
+    // Initialize a new message with the first entry in the conversation
+    const newMessage = {
       id: crypto.randomBytes(8).toString('hex'),
       ...messageData,
-      adminResponse: null,
-      adminResponseTime: null
+      conversation: [
+        {
+          role: 'user',
+          content: messageData.message,
+          timestamp: messageData.timestamp,
+          source: messageData.source || 'contact_form',
+          emailMessageId: messageData.emailMessageId, // For linking email replies
+          emailThreadId: messageData.emailThreadId, // For linking email replies
+        }
+      ],
+      // Keep adminResponse/adminResponseTime for backward compatibility or summary,
+      // but primary interaction is now in conversation array
+      adminResponse: null, 
+      adminResponseTime: null,
     };
 
-    this.messages.push(message);
+    this.messages.push(newMessage);
     this.saveMessages();
 
-    return message;
+    return newMessage;
   }
 
   /**
    * Get all messages (for feed)
    * Returns messages sorted by timestamp, oldest first
    */
-  async getAllMessages() {
-    return this.messages.sort((a, b) => 
+  async getAllMessages(limit = null, before = null) {
+    let sorted = [...this.messages].sort((a, b) => 
       new Date(a.timestamp) - new Date(b.timestamp)
     );
+
+    if (before) {
+      const beforeDate = new Date(before);
+      sorted = sorted.filter(msg => new Date(msg.timestamp) < beforeDate);
+    }
+
+    if (limit) {
+      // Slice from the end to get the most recent ones within the sorted list
+      return sorted.slice(-Math.abs(limit));
+    }
+
+    return sorted;
   }
 
   /**
@@ -81,19 +106,67 @@ class MessageStore {
   }
 
   /**
-   * Add response to a message
+   * Find a message by its Gmail thread ID (for linking replies)
    */
-  async addResponse(id, response, emailHtml = null, responseHtml = null) {
+  async findMessageByEmailThreadId(threadId) {
+    // Find a message where any conversation entry has this threadId
+    return this.messages.find(msg => 
+      msg.conversation && msg.conversation.some(entry => entry.emailThreadId === threadId)
+    );
+  }
+
+  /**
+   * Find a message by subject and sender email (fallback for linking replies)
+   * This is less reliable than threadId but can catch some cases.
+   */
+  async findMessageBySubjectAndSender(subject, senderEmail) {
+    // This is a heuristic. We'll look for a message where the initial user message
+    // has a similar subject (after stripping "Re:") and the same sender email.
+    const cleanSubject = subject.toLowerCase().replace(/^re:\s*/, '').trim();
+    return this.messages.find(msg => {
+      if (!msg.conversation) return false;
+      
+      // Check top-level email and subject
+      if (msg.email && msg.email.toLowerCase() === senderEmail.toLowerCase()) {
+        const msgSubject = msg.subject ? msg.subject.toLowerCase().replace(/^re:\s*/, '').trim() : '';
+        return msgSubject === cleanSubject;
+      }
+      return false;
+    });
+  }
+
+  /**
+   * Add a new entry (user message or admin response) to a message's conversation history
+   */
+  async addConversationEntry(id, role, content, renderedHtml = null, sentEmailHtml = null, emailMessageId = null, emailThreadId = null) {
     const message = await this.getMessage(id);
     
     if (!message) {
       throw new Error(`Message not found: ${id}`);
     }
 
-    message.adminResponse = response;
-    message.adminResponseHtml = responseHtml;
-    message.sentEmailHtml = emailHtml;
-    message.adminResponseTime = new Date();
+    const newEntry = {
+      role: role, // 'user' or 'admin'
+      content: content, // Raw text content
+      html: renderedHtml, // HTML version for display in feed
+      sentEmailHtml: sentEmailHtml, // Full HTML sent in email (for admin audit)
+      timestamp: new Date(),
+      emailMessageId: emailMessageId, // Gmail message ID if from email
+      emailThreadId: emailThreadId, // Gmail thread ID if from email
+    };
+
+    message.conversation.push(newEntry);
+
+    // Update top-level adminResponse/adminResponseTime for convenience/backward compatibility
+    if (role === 'admin') {
+      message.adminResponse = content;
+      message.adminResponseHtml = renderedHtml;
+      message.adminResponseTime = newEntry.timestamp;
+    }
+    
+    if (role === 'user') {
+      message.message = content;
+    }
 
     this.saveMessages();
     return message;

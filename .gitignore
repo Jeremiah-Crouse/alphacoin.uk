@@ -30,3 +30,4 @@ database.db
 # CREDENTIALS
 credentials.json
 *.pickle
+token.json

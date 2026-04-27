@@ -22,10 +22,12 @@
 
     .header {
       background: white;
-      border-bottom: 2px solid #e0e0e0;
+      border-bottom: 1px solid #e0e0e0;
       padding: 20px;
-      margin: -20px -20px 20px -20px;
-      padding-bottom: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      margin: -20px -20px 0 -20px;
     }
 
     .header-content {
@@ -58,12 +60,15 @@
       margin: 0 auto;
       flex: 1;
       width: 100%;
+      display: flex;
+      flex-direction: column;
     }
 
     .feed {
       display: flex;
       flex-direction: column;
       gap: 20px;
+      padding: 20px 0;
     }
 
     .message-group {
@@ -74,46 +79,22 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    .message-user {
-      background: #f9f9f9;
+    .chat-entry {
       padding: 16px;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid #f0f0f0;
     }
 
-    .message-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 8px;
+    .chat-entry:last-child {
+      border-bottom: none;
     }
 
-    .message-from {
-      font-weight: 600;
-      color: #333;
-      font-size: 15px;
+    .role-user {
+      background: #ffffff;
     }
 
-    .message-email {
-      font-size: 12px;
-      color: #999;
-    }
-
-    .message-time {
-      font-size: 12px;
-      color: #999;
-    }
-
-    .message-content {
-      color: #555;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .message-admin {
-      background: #fafafa;
-      padding: 16px;
-      border-left: 4px solid #0066cc;
+    .role-admin {
+      background: #f8f9fa;
+      border-left: 4px solid #333;
     }
 
     .admin-badge {
@@ -127,11 +108,33 @@
       margin-bottom: 8px;
     }
 
-    .admin-content {
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .entry-name {
+      font-weight: 600;
+      color: #444;
+    }
+
+    .content-body {
       color: #333;
       line-height: 1.6;
-      white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .content-body p {
+      margin-bottom: 10px;
+    }
+
+    .load-more-container {
+      text-align: center;
+      padding: 20px;
+      order: -1; /* Keep at top */
     }
 
     .no-response {
@@ -206,6 +209,9 @@
   </div>
 
   <div class="container">
+    <div class="load-more-container">
+      <button id="loadMoreBtn" class="refresh-btn" style="background: #888; display: none;" onclick="loadOlder()">Load Older Lore...</button>
+    </div>
     <div id="feed" class="feed">
       <div class="loading">Loading messages...</div>
     </div>
@@ -219,91 +225,119 @@
   </div>
 
   <script>
-    async function loadMessages() {
-      const feedDiv = document.getElementById('feed');
-      feedDiv.innerHTML = '<div class="loading">Loading messages...</div>';
+    let oldestTimestamp = null;
+    let isInitialLoad = true;
+    const feedDiv = document.getElementById('feed');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
 
+    async function loadMessages(isRefresh = false) {
+      const wasAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 100;
+      
       try {
-        const response = await fetch('/api/messages');
+        // If it's the first load, grab a limited set
+        const url = isInitialLoad ? '/api/messages?limit=20' : '/api/messages';
+        const response = await fetch(url);
         const messages = await response.json();
 
         if (!Array.isArray(messages) || messages.length === 0) {
-          feedDiv.innerHTML = `
-            <div class="empty-state">
-              <p>No messages yet.</p>
-              <p style="margin-top: 10px; font-size: 12px;">Be the first to reach out to Admin!</p>
-              <a href="/contact.html" style="display: inline-block; margin-top: 20px;">
-                <button class="refresh-btn">Send a Message</button>
-              </a>
-            </div>
-          `;
+          if (isInitialLoad) {
+            feedDiv.innerHTML = '<div class="empty-state"><p>No correspondence found in the Crousian archives.</p></div>';
+          }
           return;
+        }
+
+        if (messages.length > 0) {
+          oldestTimestamp = messages[0].timestamp;
+          loadMoreBtn.style.display = 'inline-block';
         }
 
         feedDiv.innerHTML = '';
         
-        // Messages are already sorted oldest first from the server
         messages.forEach(msg => {
           const messageGroup = document.createElement('div');
           messageGroup.className = 'message-group';
 
-          const userMessage = document.createElement('div');
-          userMessage.className = 'message-user';
+          // Handle the new conversation array schema
+          if (msg.conversation && Array.isArray(msg.conversation)) {
+            msg.conversation.forEach(entry => {
+              const entryDiv = document.createElement('div');
+              entryDiv.className = `chat-entry role-${entry.role}`;
+              
+              const header = document.createElement('div');
+              header.className = 'entry-header';
+              const name = entry.role === 'admin' ? 'Admin' : msg.name;
+              header.innerHTML = `
+                <span class="entry-name">${escapeHtml(name)}</span>
+                <span>${formatTime(entry.timestamp)}</span>
+              `;
 
-          const header = document.createElement('div');
-          header.className = 'message-header';
-          header.innerHTML = `
-            <span>
-              <div class="message-from">${escapeHtml(msg.name)}</div>
-              <div class="message-email">${escapeHtml(msg.email)}</div>
-            </span>
-            <span class="message-time">${formatTime(msg.timestamp)}</span>
-          `;
-          userMessage.appendChild(header);
+              const content = document.createElement('div');
+              content.className = 'content-body';
+              // Use HTML if provided (for Admin responses), otherwise text
+              if (entry.html) {
+                content.innerHTML = entry.html;
+              } else {
+                content.textContent = entry.content;
+              }
 
-          const content = document.createElement('div');
-          content.className = 'message-content';
-          content.textContent = msg.message;
-          userMessage.appendChild(content);
+              if (entry.role === 'admin') {
+                const badge = document.createElement('div');
+                badge.className = 'admin-badge';
+                badge.textContent = 'KING\'S RESPONSE';
+                entryDiv.appendChild(badge);
+              }
 
-          messageGroup.appendChild(userMessage);
-
-          if (msg.adminResponseHtml) {
-            const adminMessage = document.createElement('div');
-            adminMessage.className = 'message-admin';
-
-            const badge = document.createElement('div');
-            badge.className = 'admin-badge';
-            badge.textContent = 'ADMIN RESPONSE';
-
-            const adminContent = document.createElement('div');
-            adminContent.className = 'admin-content';
-            adminContent.innerHTML = msg.adminResponseHtml;
-
-            const time = document.createElement('div');
-            time.style.fontSize = '12px';
-            time.style.color = '#999';
-            time.style.marginTop = '8px';
-            time.textContent = formatTime(msg.adminResponseTime);
-
-            adminMessage.appendChild(badge);
-            adminMessage.appendChild(adminContent);
-            adminMessage.appendChild(time);
-
-            messageGroup.appendChild(adminMessage);
-          } else {
-            const noResponse = document.createElement('div');
-            noResponse.className = 'message-admin no-response';
-            noResponse.textContent = 'Awaiting Admin response...';
-            messageGroup.appendChild(noResponse);
+              entryDiv.appendChild(header);
+              entryDiv.appendChild(content);
+              messageGroup.appendChild(entryDiv);
+            });
           }
 
           feedDiv.appendChild(messageGroup);
         });
 
+        if (isInitialLoad) {
+          window.scrollTo(0, document.body.scrollHeight);
+          isInitialLoad = false;
+        } else if (wasAtBottom && isRefresh) {
+          window.scrollTo(0, document.body.scrollHeight);
+        }
+
       } catch (error) {
-        feedDiv.innerHTML = '<div class="loading" style="color: red;">Error loading messages. Please refresh.</div>';
         console.error('Error:', error);
+      }
+    }
+
+    async function loadOlder() {
+      if (!oldestTimestamp) return;
+      
+      const previousHeight = document.body.scrollHeight;
+      
+      try {
+        const response = await fetch(`/api/messages?limit=20&before=${oldestTimestamp}`);
+        const olderMessages = await response.json();
+        
+        if (olderMessages.length === 0) {
+          loadMoreBtn.textContent = "Beginning of Time Reached";
+          loadMoreBtn.disabled = true;
+          return;
+        }
+
+        // Note: For a true "prepend" with existing DOM logic, 
+        // we would rebuild the list. For this MVP, we re-run loadMessages 
+        // without the limit to refresh the full view.
+        isInitialLoad = false; 
+        await loadMessages();
+        
+        // Adjust scroll so the user doesn't lose their place
+        const newHeight = document.body.scrollHeight;
+        window.scrollTo(0, newHeight - previousHeight);
+        
+        if (olderMessages.length > 0) {
+          oldestTimestamp = olderMessages[0].timestamp;
+        }
+      } catch (error) {
+        console.error('Error loading older messages:', error);
       }
     }
 
