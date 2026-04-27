@@ -7,6 +7,7 @@ const SibApiV3Sdk = require('sib-api-v3-sdk');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const MarkdownIt = require('markdown-it');
 
 class EmailService {
@@ -15,6 +16,7 @@ class EmailService {
     this.brevoApiKey = process.env.BREVO_API_KEY;
     this.initBrevo();
     this.initGmail();
+    this.initLogo(); // Initialize logo conversion
   }
 
   initBrevo() {
@@ -61,6 +63,36 @@ class EmailService {
     }
   }
 
+  async initLogo() {
+    this.svgLogoPath = path.join(__dirname, '../public/images/acl.svg');
+    this.pngLogoPath = path.join(__dirname, '../public/images/acl-logo.png');
+
+    // Ensure the images directory exists
+    const imagesDir = path.dirname(this.pngLogoPath);
+    if (!fs.existsSync(imagesDir)) {
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+
+    // Check if PNG exists, if not, generate it
+    if (!fs.existsSync(this.pngLogoPath)) {
+      console.log('Generating PNG logo from SVG...');
+      try {
+        await sharp(this.svgLogoPath)
+          .resize(400) // Resize to a reasonable width for email
+          .png({ quality: 90 }) // High quality PNG
+          .toFile(this.pngLogoPath);
+        console.log('PNG logo generated successfully.');
+      } catch (error) {
+        console.error('Error generating PNG logo:', error);
+        // Fallback or handle error
+      }
+    }
+
+    // Read the PNG into base64 for email attachment
+    this.pngLogoBase64 = fs.readFileSync(this.pngLogoPath).toString('base64');
+    console.log('PNG logo ready for email embedding.');
+  }
+
   /**
    * Send confirmation email to user who submitted contact form
    */
@@ -103,13 +135,21 @@ class EmailService {
         return;
       }
 
+      if (!this.pngLogoBase64) {
+        console.warn('PNG logo not available, proceeding without embedded logo.');
+        // Attempt to re-initialize in case it failed first time
+        await this.initLogo();
+      }
+
       // Convert markdown to HTML
       const htmlContent = this.markdownToHtml(responseMarkdown);
 
-      // Add acl.svg image at top (would need to be inline or linked)
+      // Use direct Base64 Data URI for the logo
+      const logoSrc = this.pngLogoBase64 ? `data:image/png;base64,${this.pngLogoBase64}` : '';
+
       const fullHtmlContent = `
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="cid:acl-logo" style="max-width: 200px;" alt="alphacoin">
+          ${logoSrc ? `<img src="${logoSrc}" style="max-width: 200px;" alt="alphacoin">` : ''}
         </div>
         ${htmlContent}
         <hr>
@@ -118,12 +158,14 @@ class EmailService {
         </p>
       `;
 
-      await this.brevoClient.sendTransacEmail({
+      const emailPayload = {
         sender: { email: 'admin@alphacoin.uk', name: 'Admin' },
         to: [{ email: toEmail, name: userName }],
         subject: 'Response to Your Message - alphacoin.uk',
-        htmlContent: fullHtmlContent
-      });
+        htmlContent: fullHtmlContent,
+      };
+
+      await this.brevoClient.sendTransacEmail(emailPayload);
 
       console.log(`Response email sent to ${toEmail}`);
       return fullHtmlContent;

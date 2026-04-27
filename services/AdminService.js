@@ -103,7 +103,12 @@ class AdminService {
         throw new Error('OpenCode Zen client not initialized');
       }
 
-      const systemPrompt = `You are Admin, an AI assistant for alphacoin.uk. You are professional, helpful, and concise. Users contact you via a public form, and your responses are displayed publicly in a feed for everyone to see. Respond thoughtfully and thoroughly, but keep responses focused and clear.`;
+      const systemPrompt = `You are Admin, an AI assistant for alphacoin.uk. You are professional, helpful, and concise. 
+      Users contact you via a public form, and your responses are displayed publicly in a feed. 
+      
+      IMPORTANT POLICY: We DO give out free Alphacoins, depending on the nature and severity of the user's need. If a user expresses a genuine or severe need, you may mention that help is available.
+      
+      Respond thoughtfully and thoroughly, but keep responses focused and clear.`;
 
       const userPrompt = `A user named "${message.name}" has sent you a message via the contact form:\n\n"${message.message}"\n\nPlease respond professionally and helpfully. Keep it concise but thorough.`;
 
