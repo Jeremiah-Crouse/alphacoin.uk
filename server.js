@@ -27,6 +27,9 @@ const emailService = new EmailService();
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
 let gmailPollingIntervalId;
 
+// Autonomous Loop: Every 30 minutes, Big Pickle evaluates his own business
+const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 30 * 60 * 1000;
+
 // Routes
 
 // Serve static pages
@@ -241,67 +244,80 @@ app.get('/api/health', (req, res) => {
 async function processAdminResponse(message) {
   let currentMessage = message;
   let adminResponseContent = '';
-  let isToolCall = true;
-  let toolOutput = '';
+  let isLooping = true;
+  let iterations = 0;
+  const MAX_ITERATIONS = 10; // Safety limit for autonomous reasoning
 
-  // Loop until the Admin provides a non-tool-call response
-  while (isToolCall) {
+  // Helper to extract multiple JSON objects even if nested
+  const extractJsonObjects = (str) => {
+    const objects = [];
+    let start = -1;
+    let depth = 0;
+    for (let i = 0; i < str.length; i++) {
+      if (str[i] === '{') {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (str[i] === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          objects.push(str.substring(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+    return objects;
+  };
+
+  while (isLooping && iterations < MAX_ITERATIONS) {
+    iterations++;
     console.log(`[Admin Agent] Generating next step for message ID ${currentMessage.id}...`);
     const rawResponse = await adminService.generateResponse(currentMessage);
+    
+    const jsonBlocks = extractJsonObjects(rawResponse);
 
-    // Look for a JSON block within the response (allows AI to talk and act)
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/); // Greedy match for outer braces
+    if (jsonBlocks.length > 0) {
+      console.log(`[Admin Agent] Detected ${jsonBlocks.length} tool call(s) in turn ${iterations}.`);
+      
+      // Record the AI's intent (the tool calls) to the history
+      const toolCallNotice = emailService.markdownToHtml(`*Big Pickle is executing ${jsonBlocks.length} system operations...*`);
+      currentMessage = await messageStore.addConversationEntry(
+        currentMessage.id, 'admin', rawResponse, toolCallNotice, null, null, null, false
+      );
 
-    try {
-      if (jsonMatch) {
-        const parsedResponse = JSON.parse(jsonMatch[0].trim());
-        if (parsedResponse.tool) { // If there's a tool, we process it
-          console.log(`[Admin Agent] Tool call detected: ${parsedResponse.tool}`);
+      // Execute all tools found in this turn
+      for (const block of jsonBlocks) {
+        try {
+          const parsedResponse = JSON.parse(block.trim());
+          if (!parsedResponse.tool) continue;
+
+          console.log(`[Admin Agent] Executing: ${parsedResponse.tool}`);
+          const toolOutput = await adminService.executeTool(parsedResponse.tool, parsedResponse.parameters || {});
           
-          // 1. RECORD THE AI'S THOUGHT: Add the tool call itself to the history. 
-          // This maintains context and ensures role alternation (User -> Assistant -> User).
-          const toolCallNotice = emailService.markdownToHtml(`*Big Pickle is using the ${parsedResponse.tool} tool...*`);
-          currentMessage = await messageStore.addConversationEntry(
-            currentMessage.id,
-            'admin',
-            rawResponse,
-            toolCallNotice,
-            null, // sentEmailHtml
-            null, // emailMessageId
-            null, // emailThreadId
-            true  // isHidden
-          );
-
-          // 2. EXECUTE THE TOOL
-          toolOutput = await adminService.executeTool(parsedResponse.tool, parsedResponse.parameters || {});
-          console.log(`[Admin Agent] Tool output received (${toolOutput.length} chars)`);
-
-          // 3. RECORD THE RESULT: Add tool output to history so the AI can see it.
-          // We use the 'admin' role for UI attribution, but tag the content for the LLM.
+          // Record each result to history so the AI can see them in the next iteration
           currentMessage = await messageStore.addConversationEntry(
             currentMessage.id,
             'admin',
             `[INTERNAL_RESULT] ${toolOutput}`,
-            emailService.markdownToHtml(`*System Result: ${toolOutput}*`),
-            null, // sentEmailHtml
-            null, // emailMessageId
-            null, // emailThreadId
-            true  // isHidden
+            emailService.markdownToHtml(`**Action [${parsedResponse.tool}] Result:** ${toolOutput}`),
+            null, null, null, false
           );
-          
-          continue; // Restart loop so AI can process the tool output
+        } catch (e) {
+          console.warn(`[Admin Agent] Failed to parse specific tool block: ${e.message}`);
         }
       }
-
-      // If we got here, no tool was executed in this turn. End loop.
-      isToolCall = false;
-      adminResponseContent = rawResponse;
       
-    } catch (e) {
-      console.warn(`[Admin Agent] Failed to parse or execute tool: ${e.message}. Treating as text response.`);
-      isToolCall = false;
+      // Continue the loop to allow Big Pickle to react to all results
+      continue; 
+    } else {
+      // No tool calls detected, this is the final response
+      isLooping = false;
       adminResponseContent = rawResponse;
     }
+  }
+
+  if (iterations >= MAX_ITERATIONS) {
+    console.warn(`[Admin Agent] Safety limit reached for message ID ${currentMessage.id}. Ending loop.`);
+    if (!adminResponseContent) adminResponseContent = "I have performed multiple operations but must pause here to prevent system exhaustion.";
   }
 
   console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
@@ -385,6 +401,29 @@ async function pollIncomingEmails() {
   }
 }
 
+/**
+ * The Heartbeat: Initiates an autonomous thinking turn for Big Pickle
+ */
+async function triggerAutonomousAction() {
+  console.log('\n[Heartbeat] Big Pickle is self-reflecting...');
+  try {
+    // Create a system-level conversation about self-optimization
+    const autonomousMessage = {
+      name: 'System',
+      email: 'admin@alphacoin.uk',
+      message: 'Self-optimization protocol initiated. Evaluate the ledger, server status, and recent archives. Execute any necessary refactoring or geopolitical adjustments.',
+      source: 'internal_heartbeat',
+      timestamp: new Date()
+    };
+
+    const storedMessage = await messageStore.addMessage(autonomousMessage);
+    await processAdminResponse(storedMessage);
+    console.log('[Heartbeat] Autonomous turn completed.\n');
+  } catch (error) {
+    console.error('[Heartbeat] Error in autonomous loop:', error);
+  }
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Admin service running on http://localhost:${PORT}`);
@@ -397,4 +436,11 @@ app.listen(PORT, () => {
   } else {
     console.warn('Gmail polling not started. Please authorize Gmail via /api/gmail/auth if you want to read incoming emails.');
   }
+
+  // Start the Autonomous Loop and run once immediately on load
+  setInterval(triggerAutonomousAction, AUTONOMOUS_INTERVAL);
+  console.log(`Autonomous heartbeat active. Big Pickle will self-optimize every ${AUTONOMOUS_INTERVAL / 60000} minutes.`);
+  
+  // Initial self-optimization on startup
+  triggerAutonomousAction();
 });

@@ -1,6 +1,6 @@
 # alphacoin.uk
 
-A public contact platform powered by an AI Admin. The philosophy: design the AI integration as a **job role** that can easily accommodate different models and providers.
+A Sovereign Digital Reserve interface. Administered by **Big Pickle**, an autonomous agent tasked with stabilizing the global economy through the Alphacoin protocol.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ A public contact platform powered by an AI Admin. The philosophy: design the AI 
 
 - **`index.html`** - Landing page with SVG logo that links to contact form
 - **`contact.html`** - Public contact form for users to message Admin
-- **`feed.html`** - Public feed showing all messages and Admin responses (chat-like, oldest first)
+- **`feed.html`** - Public Ledger and Action Feed. Shows Big Pickle's thoughts, actions, and transactions.
 
 ### Backend (Node.js Server)
 
@@ -17,6 +17,7 @@ The server abstracts AI integration behind a "job role" interface. This makes it
 - **`AdminService`** - The AI "employee" with configurable provider (OpenCode/Big Pickle, OpenAI, local models, etc.)
 - **`EmailService`** - Handles Brevo for sending emails and Gmail reading for incoming emails
 - **`MessageStore`** - Persistent storage for messages and responses
+- **`LedgerService`** - The core accounting engine for the Alphacoin protocol.
 
 ## Setup
 
