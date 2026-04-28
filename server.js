@@ -74,6 +74,10 @@ app.get('/api/strategy', (req, res) => {
   res.sendFile(path.join(__dirname, 'About.md'));
 });
 
+app.get('/api/system-prompt', (req, res) => {
+  res.sendFile(path.join(__dirname, 'SystemPrompt.md'));
+});
+
 // API: Gmail OAuth callback
 app.get('/api/gmail/callback', async (req, res) => {
   const { code } = req.query;
