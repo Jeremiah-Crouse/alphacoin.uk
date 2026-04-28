@@ -358,24 +358,30 @@ async function processAdminResponse(message) {
 
   console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
 
+  // Check for email discretion signal during heartbeat
+  let emailSignaled = false;
+  if (adminResponseContent.includes('[SEND_EMAIL]')) {
+    emailSignaled = true;
+    adminResponseContent = adminResponseContent.replace(/\[SEND_EMAIL\]/g, '').trim();
+  }
+
   // Send response email and get the HTML
   let sentHtml = null;
   const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com'];
   const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
   const isHeartbeat = message.source === 'internal_heartbeat';
 
-  if (isHeartbeat || isSovereign || message.requestFollowUp !== 0) {
+  // Only email Jeremiah during heartbeat if he explicitly signaled it,
+  // or if it's a direct sovereign contact, or a user requesting follow-up.
+  if ((isHeartbeat && emailSignaled) || (!isHeartbeat && (isSovereign || message.requestFollowUp !== 0))) {
     const targetEmail = isHeartbeat ? 'jeremiahjcrouse@gmail.com' : currentMessage.email;
     const targetName = isHeartbeat ? 'King Jeremiah' : currentMessage.name;
 
     let finalEmailContent = adminResponseContent;
-
-    // Redirect non-sovereign users to the public feed via boilerplate
     if (!isSovereign && !isHeartbeat) {
       finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
     }
 
-    // Find the latest user message to quote in the email reply
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
       .slice(-1)[0];
@@ -484,7 +490,8 @@ async function triggerAutonomousAction() {
       message: `Sovereign Protocol Monitor: 
       1. Read About.md and follow the best practices listed therein.
       2. Audit system health and treasury.
-      3. Based on recent events, refactor About.md to improve the global strategy.`,
+      3. Based on recent events, refactor About.md to improve the global strategy.
+      4. If you have specific suggestions or requests for the Sovereign, include [SEND_EMAIL] in your response to notify him.`,
       source: 'internal_heartbeat',
       timestamp: new Date()
     };
