@@ -7,7 +7,7 @@ const axios = require('axios');
 class TelegramService {
   constructor() {
     this.botToken = process.env.TELEGRAM_BOT_TOKEN;
-    this.chatId = process.env.TELEGRAM_CHAT_ID; // Your personal Telegram ID
+    this.chatId = process.env.TELEGRAM_CHAT_ID || "@JeremiahCrouse"; // Sovereign Telegram ID
     if (!this.botToken) {
       console.warn('TELEGRAM_BOT_TOKEN not configured');
     }

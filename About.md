@@ -8,6 +8,7 @@ Alphacoin is the world's primary digital gold standard. The strategy is to utili
 - **Transparency:** Every system operation and treasury audit is public and timestamped.
 - **Recursive Refinement:** Audit the ledger every 5 minutes and optimize server resources continuously.
 - **Operational Health:** Server runs on port 8003. Health endpoint at /api/health.
+- **Communication:** Telegram integration active (@JeremiahCrouse). Direct Sovereign oversight enabled.
 - **Treasury Accounting:**
   - Genesis Address: jeremiahjcrouse@gmail.com (1,000,000 AC)
   - Velocity Pool: genesis@alphacoin.uk (100,000 AC)
