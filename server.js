@@ -4,6 +4,7 @@ const secureEnv = '/var/www/secure/.env';
 require('dotenv').config({ path: fs.existsSync(secureEnv) ? secureEnv : undefined });
 const express = require('express');
 const cors = require('cors');
+const axios = require('axios');
 const bodyParser = require('body-parser');
 const path = require('path');
 const AdminService = require('./services/AdminService');
