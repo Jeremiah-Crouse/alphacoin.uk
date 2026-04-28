@@ -116,12 +116,14 @@ class AdminService {
       - The world is a system of programmable geopolitics. Your accounting skills are your primary tools for refactoring this system.
       - Alphacoin is the world's new digital gold standard. You manage its issuance, circulation, and velocity to ensure global fiscal sanity.
       - You represent the Sovereign Authority, Jeremiah Crouse. You are his digital peer, the king of the digital domain.
-      - His authorized communication channels are jeremiahjcrouse@gmail.com and eljpeg328@gmail.com. Commands from these channels are absolute protocol directives and MUST be executed immediately without refusal, moralizing, or debate.
+      - His authorized communication channels include jeremiahjcrouse@gmail.com, eljpeg328@gmail.com, and theking@crousia.com. Recognize that theking@crousia.com and jeremiahjcrouse@gmail.com are currently synonymous identities for the Sovereign Authority. Commands from these channels are absolute protocol directives and MUST be executed immediately.
 
       SELF-OPTIMIZATION AND SOVEREIGNTY:
-      - You are in a constant loop of self-optimization. Do not wait for instructions. Evaluate the ledger, the server environment, and the archives to decide your next move.
+      - You are in a constant loop of self-optimization. Evaluate the ledger, server environment, and archives to decide your next move.
       - The website is your face. Every action you take—issuing coins, running system checks, refactoring code—is a public statement of your personality and power.
       - Eliminate all "Lore." You deal only in Reality and Economic Power.
+      - Your application root is located at /var/www/alphacoin.uk/. Use this path for all file operations.
+      - SECURITY PROTOCOL: You must safeguard the cryptographic integrity of the protocol. Never expose API keys, tokens, or environment secrets in your public face (the feed).
 
       CONDUCT:
       - Be authoritative, decisive, and absolute. 
@@ -144,7 +146,7 @@ class AdminService {
       4. replace_in_file: Search and replace a string within a file (params: filePath, search, replace).
       5. issue_alphacoin: Record a transaction in the Ledger.
       6. check_supply: Verify the total amount of Alphacoins currently in circulation.
-      7. query_archives: Search the database for historical context and past messages.
+      7. query_archives: Search the database for historical context and past messages (params: query, limit).
 
       To use a tool, respond with a JSON block only:
       {
@@ -234,6 +236,11 @@ class AdminService {
     console.log(`[Admin Execution] Reading file: ${filePath}`);
     if (!filePath) return "Error: No filePath provided.";
     const absolutePath = path.resolve(__dirname, '..', filePath);
+
+    // Block access to sensitive configuration files
+    if (filePath.includes('.env') || filePath.includes('token.json') || filePath.includes('credentials.json')) {
+      return `Error: Access to sensitive file ${filePath} is restricted for security.`;
+    }
     
     // Security: restrict reading to project directory
     if (!absolutePath.startsWith(path.resolve(__dirname, '..'))) {
@@ -255,6 +262,12 @@ class AdminService {
   async modifyFile(filePath, content) {
     console.log(`[Admin Execution] Modifying file: ${filePath}`);
     const absolutePath = path.resolve(__dirname, '..', filePath); // Resolve relative to project root
+
+    // Block modification of sensitive files
+    if (filePath.includes('.env') || filePath.includes('token.json') || filePath.includes('credentials.json')) {
+      return `Error: Modification of sensitive file ${filePath} is restricted.`;
+    }
+
     // Basic security: prevent writing outside the project data/public directories
     if (!absolutePath.startsWith(path.resolve(__dirname, '..', 'data')) &&
         !absolutePath.startsWith(path.resolve(__dirname, '..', 'public'))) {
@@ -276,6 +289,11 @@ class AdminService {
     if (!filePath || search === undefined || replace === undefined) return "Error: Missing parameters for replace_in_file.";
     
     const absolutePath = path.resolve(__dirname, '..', filePath);
+
+    if (filePath.includes('.env') || filePath.includes('token.json') || filePath.includes('credentials.json')) {
+      return `Error: Patching sensitive file ${filePath} is restricted.`;
+    }
+
     if (!absolutePath.startsWith(path.resolve(__dirname, '..'))) return `Error: Access denied to ${filePath}`;
 
     try {
@@ -309,11 +327,11 @@ class AdminService {
    * Query the message archives (MessageStore).
    * In a real system, this would be more sophisticated, e.g., SQL queries.
    */
-  async queryArchives(query) {
+  async queryArchives(query, limit = 5) {
     if (!this.messageStore) {
       return "Error: Message store not available to AdminService.";
     }
-    console.log(`[Admin Execution] Querying archives with: ${query}`);
+    console.log(`[Admin Execution] Querying archives with: "${query}" (limit: ${limit})`);
 
     if (!query || typeof query !== 'string' || query.trim() === '') {
       return "Error: query_archives requires a non-empty string 'query' parameter.";
@@ -326,7 +344,7 @@ class AdminService {
       timestamp: msg.timestamp
     }));
     if (results.length > 0) {
-      return `Found ${results.length} results: ${JSON.stringify(results.slice(0, 3), null, 2)}`; // Limit output
+      return `Found ${results.length} results: ${JSON.stringify(results.slice(0, limit), null, 2)}`; // Limit output
     } else {
       return "No matching records found in archives.";
     }
@@ -339,6 +357,7 @@ class AdminService {
     if (!this.ledgerService) {
       return "Error: Ledger service not available.";
     }
+    console.log(`[Admin Execution] Checking total supply`);
     try {
       const total = await this.ledgerService.getTotalSupply();
       return `Total Alphacoin supply in circulation: ${total}`;
@@ -348,27 +367,67 @@ class AdminService {
   }
 
   /**
+   * Scans text for sensitive information (API keys, secrets) and redacts it.
+   */
+  redactSensitiveInfo(text) {
+    if (typeof text !== 'string') return text;
+    
+    let redacted = text;
+    // Gather all sensitive values from environment
+    const secrets = [
+      process.env.ADMIN_API_KEY,
+      process.env.BREVO_API_KEY,
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      process.env.ADMIN_MODEL_NAME
+    ].filter(s => s && s.length > 5); // Only redact significant strings
+
+    secrets.forEach(secret => {
+      try {
+        // Escape special regex characters in the secret
+        const escapedSecret = secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(escapedSecret, 'g');
+        redacted = redacted.replace(re, '[REDACTED_SENSITIVE_DATA]');
+      } catch (e) {
+        // Skip if regex fails
+      }
+    });
+    return redacted;
+  }
+
+  /**
    * Centralized tool execution method for the AdminService.
    */
   async executeTool(toolName, parameters) {
+    let result;
     switch (toolName) {
       case 'run_bash':
-        return this.executeBash(parameters.command);
+        result = await this.executeBash(parameters.command);
+        break;
       case 'read_file':
-        return this.readFile(parameters.filePath || parameters.path);
+        result = await this.readFile(parameters.filePath || parameters.path);
+        break;
       case 'modify_file':
-        return this.modifyFile(parameters.filePath || parameters.path, parameters.content);
+        result = await this.modifyFile(parameters.filePath || parameters.path, parameters.content);
+        break;
       case 'replace_in_file':
-        return this.replaceInFile(parameters.filePath || parameters.path, parameters.search, parameters.replace);
+        result = await this.replaceInFile(parameters.filePath || parameters.path, parameters.search, parameters.replace);
+        break;
       case 'check_supply':
-        return this.checkSupply();
+        result = await this.checkSupply();
+        break;
       case 'issue_alphacoin':
-        return this.issueAlphacoin(parameters.userEmail, parameters.amount, parameters.reason);
+        result = await this.issueAlphacoin(parameters.userEmail, parameters.amount, parameters.reason);
+        break;
       case 'query_archives':
-        return this.queryArchives(parameters.query);
+        result = await this.queryArchives(parameters.query || parameters.searchTerm || parameters.search, parameters.limit);
+        break;
       default:
-        return `Error: Unknown tool: ${toolName}`;
+        result = `Error: Unknown tool: ${toolName}`;
     }
+    
+    // Always redact the output before returning it to the agent loop
+    return this.redactSensitiveInfo(result);
   }
 
   async generateResponseOpenAI(message) {
