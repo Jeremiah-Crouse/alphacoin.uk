@@ -7,6 +7,7 @@ const AdminService = require('./services/AdminService');
 const EmailService = require('./services/EmailService');
 const LedgerService = require('./services/LedgerService'); // Import LedgerService
 const MessageStore = require('./services/MessageStore');
+const UserStore = require('./services/UserStore'); // User onboarding infrastructure
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,10 +19,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize services
-const messageStore = new MessageStore(); // Initialize MessageStore first
+const messageStore = new MessageStore();
 const ledgerService = new LedgerService(); // Initialize LedgerService
 const adminService = new AdminService({ messageStore, ledgerService }); // Pass services to AdminService
 const emailService = new EmailService();
+const userStore = new UserStore(); // Initialize UserStore for user onboarding
 
 // Polling interval for Gmail (e.g., every 5 minutes)
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
@@ -267,6 +269,207 @@ app.post('/api/messages/generate-all-responses', async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// =============================================
+// USER ONBOARDING & AUTHENTICATION APIs
+// =============================================
+
+// API: Register new user
+app.post('/api/users/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    // Validate password strength (min 8 characters)
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    
+    const user = await userStore.createUser(email, password, name);
+    
+    // Send verification email
+    const verifyUrl = `${req.protocol}://${req.get('host')}/api/users/verify?token=${user.verificationToken}`;
+    await emailService.sendVerificationEmail(email, user.name, verifyUrl);
+    
+    res.json({ 
+      success: true, 
+      message: 'Registration successful. Please check your email to verify your account.',
+      userId: user.id
+    });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    if (error.message === 'User already exists') {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// API: Verify user email
+app.get('/api/users/verify', async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    if (!token) {
+      return res.status(400).send('Verification token is required');
+    }
+    
+    const user = await userStore.verifyUser(token);
+    
+    // Send welcome email with faucet claim instructions
+    await emailService.sendWelcomeEmail(user.email, user.name);
+    
+    res.send('<html><body style="font-family: sans-serif; text-align: center; padding: 50px;"><h1>✅ Email Verified!</h1><p>Your account has been verified. You can now <a href="/dashboard.html">claim your Alpha Coins</a> from the faucet!</p></body></html>');
+  } catch (error) {
+    console.error('Error verifying user:', error);
+    res.status(400).send('Invalid or expired verification token');
+  }
+});
+
+// API: Login
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    
+    const user = await userStore.authenticateUser(email, password);
+    
+    if (!user.verified) {
+      return res.status(403).json({ error: 'Please verify your email first' });
+    }
+    
+    res.json({ 
+      success: true, 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        verified: user.verified,
+        faucetClaimed: user.faucetClaimed
+      }
+    });
+  } catch (error) {
+    console.error('Error logging in:', error);
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
+
+// API: Claim faucet (get initial Alpha Coins)
+app.post('/api/faucet/claim', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    // Verify user exists and can claim
+    const result = await userStore.claimFaucet(email);
+    
+    // Issue coins to user in ledger (drawn from faucet wallet)
+    const tx = await ledgerService.issueCoins(
+      email, 
+      10, 
+      `Faucet Claim - Welcome to Alphacoin Protocol`,
+      'faucet'
+    );
+    
+    res.json({ 
+      success: true, 
+      message: `Congratulations! You've received 10 Alpha Coins.`,
+      transaction: tx
+    });
+  } catch (error) {
+    console.error('Error claiming faucet:', error);
+    if (error.message === 'User not found') {
+      return res.status(404).json({ error: 'Please register first' });
+    }
+    if (error.message === 'User not verified') {
+      return res.status(403).json({ error: 'Please verify your email first' });
+    }
+    if (error.message === 'Faucet already claimed') {
+      return res.status(400).json({ error: 'You have already claimed your faucet allocation' });
+    }
+    res.status(500).json({ error: 'Faucet claim failed' });
+  }
+});
+
+// API: Get user dashboard data
+app.get('/api/dashboard/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const user = await userStore.getUser(email);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const balance = await ledgerService.getUserBalance(email);
+    const faucetStats = userStore.getFaucetStats();
+    
+    res.json({
+      user: {
+        email: user.email,
+        name: user.name,
+        verified: user.verified,
+        faucetClaimed: user.faucetClaimed,
+        createdAt: user.createdAt
+      },
+      balance,
+      faucet: {
+        available: !user.faucetClaimed,
+        amount: user.faucetAmount
+      },
+      protocolStats: {
+        totalUsers: userStore.getUserCount(),
+        faucetRemaining: faucetStats.remaining,
+        totalSupply: await ledgerService.getTotalSupply()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard' });
+  }
+});
+
+// API: Get protocol statistics (public)
+app.get('/api/stats', async (req, res) => {
+  try {
+    const faucetStats = userStore.getFaucetStats();
+    const totalSupply = await ledgerService.getTotalSupply();
+    const userCount = userStore.getUserCount();
+    
+    res.json({
+      totalSupply,
+      totalUsers: userCount,
+      faucet: {
+        totalAllocated: faucetStats.totalAllocated,
+        remaining: faucetStats.remaining,
+        usersClaimed: faucetStats.usersClaimed
+      },
+      treasury: {
+        genesis: 1000000,
+        velocityPool: 100000,
+        strategicReserve: 900000
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
 });
 
 /**

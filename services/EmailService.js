@@ -245,6 +245,83 @@ class EmailService {
   }
 
   /**
+   * Send verification email to new user
+   */
+  async sendVerificationEmail(toEmail, userName, verifyUrl) {
+    try {
+      if (!this.brevoClient) {
+        console.warn('Brevo not configured, skipping verification email');
+        return;
+      }
+
+      const htmlContent = `
+        <div style="text-align: center; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <h1 style="color: #1a1a2e;">Welcome to Alphacoin, ${userName}!</h1>
+          <p style="color: #333;">Thank you for joining the Alphacoin protocol.</p>
+          <p style="color: #333;">Click the button below to verify your email address:</p>
+          <a href="${verifyUrl}" style="display: inline-block; background: #4CAF50; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">Verify Email</a>
+          <p style="color: #666; font-size: 12px;">Or copy this link: ${verifyUrl}</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">alphacoin.uk - The World's Digital Gold Standard</p>
+        </div>
+      `;
+
+      await this.brevoClient.sendTransacEmail({
+        sender: { email: 'admin@alphacoin.uk', name: 'Alphacoin' },
+        to: [{ email: toEmail, name: userName }],
+        subject: 'Verify Your Alphacoin Account',
+        htmlContent
+      });
+
+      console.log(`Verification email sent to ${toEmail}`);
+      return htmlContent;
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send welcome email after verification with faucet claim instructions
+   */
+  async sendWelcomeEmail(toEmail, userName) {
+    try {
+      if (!this.brevoClient) {
+        console.warn('Brevo not configured, skipping welcome email');
+        return;
+      }
+
+      const htmlContent = `
+        <div style="text-align: center; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <h1 style="color: #1a1a2e;">Email Verified!</h1>
+          <p style="color: #333; font-size: 18px;">Welcome to Alphacoin, ${userName}!</p>
+          <div style="background: #e8f5e9; padding: 20px; border-radius: 12px; margin: 20px 0;">
+            <h2 style="color: #4CAF50; margin: 0;">🎉 You Earned 10 AC</h2>
+            <p style="color: #333; margin: 10px 0 0 0;">Your faucet claim is ready!</p>
+          </div>
+          <p style="color: #333;">Visit your dashboard to claim your Alphacoins and start participating in the protocol.</p>
+          <a href="https://alphacoin.uk/login.html" style="display: inline-block; background: #4CAF50; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">Claim Your AC</a>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">alphacoin.uk - The World's Digital Gold Standard</p>
+        </div>
+      `;
+
+      await this.brevoClient.sendTransacEmail({
+        sender: { email: 'admin@alphacoin.uk', name: 'Alphacoin' },
+        to: [{ email: toEmail, name: userName }],
+        subject: 'Welcome to Alphacoin - Claim Your 10 AC!',
+        htmlContent
+      });
+
+      console.log(`Welcome email sent to ${toEmail}`);
+      return htmlContent;
+    } catch (error) {
+      console.error('Error sending welcome email:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Simple markdown to HTML conversion
    * Could be extended or use a library
    */

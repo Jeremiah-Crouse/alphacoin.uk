@@ -20,6 +20,13 @@ class LedgerService {
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        passwordHash TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        faucetClaimed INTEGER DEFAULT 0
+      );
       CREATE TABLE IF NOT EXISTS ledger (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         userEmail TEXT,
@@ -47,8 +54,20 @@ class LedgerService {
     }
   }
 
-  async issueCoins(userEmail, amount, reason) {
+  async issueCoins(userEmail, amount, reason, source = 'treasury') {
     const timestamp = new Date().toISOString();
+    
+    // For faucet claims, draw from faucet_wallet
+    if (source === 'faucet') {
+      const faucet = this.db.prepare('SELECT * FROM faucet_wallet WHERE id = 1').get();
+      if (!faucet || faucet.balance < parseFloat(amount)) {
+        throw new Error('Faucet wallet insufficient funds');
+      }
+      // Deduct from faucet wallet
+      this.db.prepare('UPDATE faucet_wallet SET balance = balance - ?, last_updated = ? WHERE id = 1')
+        .run(parseFloat(amount), timestamp);
+    }
+    
     const info = this.db.prepare('INSERT INTO ledger (userEmail, amount, reason, timestamp) VALUES (?, ?, ?, ?)')
       .run(userEmail, parseFloat(amount), reason, timestamp);
     
@@ -59,6 +78,16 @@ class LedgerService {
       reason: reason,
       timestamp: timestamp
     };
+  }
+
+  async getFaucetWalletBalance() {
+    const result = this.db.prepare('SELECT balance FROM faucet_wallet WHERE id = 1').get();
+    return result ? result.balance : 0;
+  }
+
+  async getVelocityPoolBalance() {
+    const result = this.db.prepare('SELECT balance FROM velocity_pool WHERE id = 1').get();
+    return result ? result.balance : 0;
   }
 
   async getTotalSupply() {
