@@ -8,11 +8,52 @@ class TelegramService {
   constructor() {
     this.botToken = process.env.TELEGRAM_BOT_TOKEN;
     this.chatId = process.env.TELEGRAM_CHAT_ID; 
+    this.lastUpdateId = 0;
     if (!this.botToken) {
       console.warn('TELEGRAM_BOT_TOKEN not configured');
     }
     if (!this.chatId || this.chatId.startsWith('@')) {
       console.warn('[Telegram] TELEGRAM_CHAT_ID must be a numeric ID, not a username. Message @userinfobot to find yours.');
+    }
+  }
+
+  /**
+   * Fetch new messages from Telegram
+   */
+  async getUpdates() {
+    if (!this.botToken) return [];
+
+    try {
+      const url = `https://api.telegram.org/bot${this.botToken}/getUpdates`;
+      const response = await axios.get(url, {
+        params: {
+          offset: this.lastUpdateId + 1,
+          timeout: 30
+        }
+      });
+
+      const updates = response.data.result || [];
+      const messages = [];
+
+      for (const update of updates) {
+        this.lastUpdateId = update.update_id;
+        if (update.message && update.message.text) {
+          const msg = update.message;
+          messages.push({
+            id: msg.message_id,
+            chatId: msg.chat.id,
+            username: msg.from.username ? `@${msg.from.username}` : 'Unknown',
+            firstName: msg.from.first_name,
+            lastName: msg.from.last_name,
+            text: msg.text,
+            date: new Date(msg.date * 1000)
+          });
+        }
+      }
+      return messages;
+    } catch (error) {
+      console.error('[Telegram] Error fetching updates:', error.message);
+      return [];
     }
   }
 

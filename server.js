@@ -34,8 +34,12 @@ const telegramService = new TelegramService();
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
 let gmailPollingIntervalId;
 
-// Autonomous Loop: Every 5 minutes, Big Pickle evaluates his own business
-const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 5 * 60 * 1000;
+// Telegram polling every 5 minutes
+const TELEGRAM_POLLING_INTERVAL = 5 * 60 * 1000;
+let telegramPollingIntervalId;
+
+// Autonomous Loop: Every 20 minutes, Admin evaluates his own business
+const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 20 * 60 * 1000;
 
 // Routes
 
@@ -118,6 +122,76 @@ function startGmailPolling() {
   pollIncomingEmails(); 
 }
 
+/**
+ * Polling logic for Telegram
+ */
+async function pollTelegramMessages() {
+  console.log('[Telegram] Checking for new messages...');
+  try {
+    const messages = await telegramService.getUpdates();
+    
+    for (const tgMsg of messages) {
+      console.log(`[Telegram] New message from ${tgMsg.username}: ${tgMsg.text.substring(0, 30)}...`);
+      
+      // Map Telegram user to the standard message schema
+      // We use the username (with @) as the 'email' proxy so the AI recognizes Sovereign handles
+      const newMessage = {
+        name: `${tgMsg.firstName || ''} ${tgMsg.lastName || ''}`.trim() || tgMsg.username,
+        email: tgMsg.username, // e.g. @JeremiahCrouse
+        message: tgMsg.text,
+        requestFollowUp: true, // Default to true for Telegram
+        source: 'telegram',
+        timestamp: tgMsg.date,
+      };
+
+      const storedMessage = await messageStore.addMessage(newMessage);
+      
+      // Notify Admin
+      await adminService.notifyNewMessage(storedMessage);
+
+      // Run the reasoning loop
+      const updatedMessage = await processAdminResponse(storedMessage);
+      
+      // If the response wasn't suppressed by discretion, send it back to the specific chat
+      // Note: processAdminResponse already handles Sovereign email notifications, 
+      // so we only send a direct Telegram reply if it's a direct conversation.
+      if (updatedMessage.adminResponse) {
+        // Strip out the [SEND_EMAIL] tag if the AI included it in the response
+        const cleanResponse = updatedMessage.adminResponse.replace(/\[SEND_EMAIL\]/g, '').trim();
+        
+        // Only send if it's not a boilerplate (unless you want boilerplate on Telegram)
+        const isSovereign = ['@JeremiahCrouse'].includes(tgMsg.username);
+        const responseText = (!isSovereign) 
+          ? "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity."
+          : cleanResponse;
+
+        await telegramService.sendMessageToChat(tgMsg.chatId, responseText);
+      }
+    }
+  } catch (error) {
+    console.error('[Telegram] Polling error:', error);
+  }
+}
+
+// Helper to start Telegram polling
+function startTelegramPolling() {
+  if (telegramPollingIntervalId) {
+    clearInterval(telegramPollingIntervalId);
+  }
+  telegramPollingIntervalId = setInterval(pollTelegramMessages, TELEGRAM_POLLING_INTERVAL);
+  console.log(`Telegram polling active (every ${TELEGRAM_POLLING_INTERVAL / 1000} seconds).`);
+  pollTelegramMessages();
+}
+
+/**
+ * Add a helper to TelegramService to respond to specific chats
+ */
+telegramService.sendMessageToChat = async function(chatId, text) {
+  const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+  try {
+    await axios.post(url, { chat_id: chatId, text: text, parse_mode: 'HTML' });
+  } catch (e) { console.error('[Telegram] Reply failed:', e.message); }
+};
 
 // API: Submit a message
 app.post('/api/messages', async (req, res) => {
@@ -585,33 +659,39 @@ async function processAdminResponse(message) {
 
   // Send response email and get the HTML
   let sentHtml = null;
-  const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com'];
+  const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com', '@JeremiahCrouse'];
   const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
   const isHeartbeat = message.source === 'internal_heartbeat';
 
-  // Only email Jeremiah during heartbeat if he explicitly signaled it,
-  // or if it's a direct sovereign contact, or a user requesting follow-up.
-  if ((isHeartbeat && emailSignaled) || (!isHeartbeat && (isSovereign || message.requestFollowUp !== 0))) {
-    const targetEmail = isHeartbeat ? 'jeremiahjcrouse@gmail.com' : currentMessage.email;
-    const targetName = isHeartbeat ? 'King Jeremiah' : currentMessage.name;
-
-    let finalEmailContent = adminResponseContent;
-    if (!isSovereign && !isHeartbeat) {
-      finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
+  // SOVEREIGN NOTIFICATION: Route to Telegram instead of Email
+  if ((isHeartbeat && emailSignaled) || (!isHeartbeat && isSovereign && message.source !== 'telegram')) {
+    let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
+    
+    // If responding to a specific message from another channel, include a brief quote
+    if (!isHeartbeat) {
+      const latestUserEntry = currentMessage.conversation.filter(e => e.role === 'user').slice(-1)[0];
+      const textToQuote = latestUserEntry ? latestUserEntry.content : currentMessage.message;
+      telegramText += `\n\n<i>Re: ${textToQuote.substring(0, 100)}${textToQuote.length > 100 ? '...' : ''}</i>`;
     }
 
+    await telegramService.sendMessage(telegramText);
+    console.log(`[System] Sovereign notified via Telegram (${isHeartbeat ? 'Heartbeat Signal' : 'Direct Reply'})`);
+  } 
+  // GENERAL USER EMAIL: Send boilerplate redirection
+  else if (!isHeartbeat && !isSovereign && message.requestFollowUp !== 0) {
+    const finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
       .slice(-1)[0];
 
     sentHtml = await emailService.sendAdminResponse(
-      targetEmail, 
-      targetName, 
+      currentMessage.email, 
+      currentMessage.name, 
       finalEmailContent,
       currentMessage.emailMessageId,
       currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
       { 
-        name: targetName, email: targetEmail, 
+        name: currentMessage.name, email: currentMessage.email, 
         text: latestUserEntry ? latestUserEntry.content : currentMessage.message, 
         timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
       }
@@ -717,11 +797,6 @@ async function triggerAutonomousAction() {
     const storedMessage = await messageStore.addMessage(autonomousMessage);
     await processAdminResponse(storedMessage);
     
-    // Notify Sovereign via Telegram of the completed cycle
-    await telegramService.sendHeartbeatNotification(
-      `Big Pickle completed self-optimization. Ledger: ${await ledgerService.getTotalSupply()} AC`
-    );
-
     console.log('[Heartbeat] Autonomous turn completed.\n');
   } catch (error) {
     console.error('[Heartbeat] Error in autonomous loop:', error);
@@ -740,6 +815,13 @@ app.listen(PORT, () => {
     startGmailPolling();
   } else {
     console.warn('Gmail polling not started. Please authorize Gmail via /api/gmail/auth if you want to read incoming emails.');
+  }
+
+  // Start Telegram Polling
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    startTelegramPolling();
+  } else {
+    console.warn('Telegram token missing. Polling skipped.');
   }
 
   // Start the Autonomous Loop and run once immediately on load
