@@ -333,6 +333,31 @@ class AdminService {
   }
 
   /**
+   * Perform a web search to provide RAG capabilities.
+   * This implementation assumes the use of a search API like Tavily or Serper.
+   */
+  async webSearch(query) {
+    console.log(`[Admin Execution] Searching the web for: "${query}"`);
+    const searchApiKey = process.env.TAVILY_API_KEY || process.env.SERPER_API_KEY;
+    
+    if (!searchApiKey) {
+      return "Error: Web search API key not configured. Please add TAVILY_API_KEY to your environment.";
+    }
+
+    try {
+      // Placeholder for Tavily API call - a common choice for LLM search
+      const response = await axios.post('https://api.tavily.com/search', {
+        api_key: searchApiKey,
+        query: query,
+        search_depth: "smart"
+      });
+      return JSON.stringify(response.data.results.map(r => ({ title: r.title, url: r.url, content: r.content })), null, 2);
+    } catch (error) {
+      return `Error performing web search: ${error.message}`;
+    }
+  }
+
+  /**
    * Scans text for sensitive information (API keys, secrets) and redacts it.
    */
   redactSensitiveInfo(text) {
@@ -345,7 +370,8 @@ class AdminService {
       process.env.BREVO_API_KEY,
       process.env.GMAIL_CLIENT_ID,
       process.env.GMAIL_CLIENT_SECRET,
-      // process.env.ADMIN_MODEL_NAME // Not a secret, should not be redacted
+      process.env.TAVILY_API_KEY,
+      process.env.SERPER_API_KEY
     ].filter(s => s && s.length > 5); // Only redact significant strings
 
     secrets.forEach(secret => {
@@ -387,6 +413,9 @@ class AdminService {
         break;
       case 'query_archives':
         result = await this.queryArchives(parameters.query || parameters.searchTerm || parameters.search, parameters.limit);
+        break;
+      case 'web_search':
+        result = await this.webSearch(parameters.query);
         break;
       default:
         result = `Error: Unknown tool: ${toolName}`;

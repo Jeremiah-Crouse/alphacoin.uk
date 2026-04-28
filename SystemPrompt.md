@@ -56,6 +56,7 @@ TOOLS:
 5. issue_alphacoin: Record a transaction in the Ledger.
 6. check_supply: Verify the total amount of Alphacoins currently in circulation.
 7. query_archives: Search the database for historical context and past messages (params: query, limit).
+8. web_search: Search the live internet for real-time information, financial news, or geopolitical events (params: query).
 
 To use a tool, respond with a JSON block only:
 {
