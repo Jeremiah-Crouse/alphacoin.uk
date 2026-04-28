@@ -283,8 +283,10 @@ async function processAdminResponse(message) {
     iterations++;
     console.log(`[Admin Agent] Generating next step for message ID ${currentMessage.id}...`);
     const rawResponse = await adminService.generateResponse(currentMessage);
+    // Immediately redact any sensitive info from the AI's raw response
+    const redactedRawResponse = adminService.redactSensitiveInfo(rawResponse);
     
-    const jsonBlocks = extractJsonObjects(rawResponse);
+    const jsonBlocks = extractJsonObjects(redactedRawResponse);
 
     if (jsonBlocks.length > 0) {
       console.log(`[Admin Agent] Detected ${jsonBlocks.length} tool call(s) in turn ${iterations}.`);
@@ -292,7 +294,7 @@ async function processAdminResponse(message) {
       // Record the AI's intent (the tool calls) to the history
       const toolCallNotice = emailService.markdownToHtml(`*Big Pickle is executing ${jsonBlocks.length} system operations...*`);
       currentMessage = await messageStore.addConversationEntry(
-        currentMessage.id, 'admin', rawResponse, toolCallNotice, null, null, null, false
+        currentMessage.id, 'admin', redactedRawResponse, toolCallNotice, null, null, null, false
       );
 
       // Execute all tools found in this turn
@@ -322,7 +324,7 @@ async function processAdminResponse(message) {
     } else {
       // No tool calls detected, this is the final response
       isLooping = false;
-      adminResponseContent = rawResponse;
+      adminResponseContent = redactedRawResponse;
     }
   }
 
@@ -336,6 +338,11 @@ async function processAdminResponse(message) {
   // Send response email and get the HTML
   let sentHtml = null;
   if (message.source !== 'internal_heartbeat') {
+    // Find the latest user message to quote in the email reply
+    const latestUserEntry = currentMessage.conversation
+      .filter(e => e.role === 'user')
+      .slice(-1)[0];
+
     sentHtml = await emailService.sendAdminResponse(
       currentMessage.email, 
       currentMessage.name, 
@@ -344,7 +351,8 @@ async function processAdminResponse(message) {
       currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
       { 
         name: currentMessage.name, email: currentMessage.email, 
-        text: currentMessage.message, timestamp: currentMessage.timestamp 
+        text: latestUserEntry ? latestUserEntry.content : currentMessage.message, 
+        timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
       }
     );
   }
@@ -393,9 +401,9 @@ async function pollIncomingEmails() {
       if (linkedMessage) {
         // It's a reply to an existing conversation
         console.log(`[Polling] Found reply for message ID ${linkedMessage.id} from ${email.from.email}`);
-        await messageStore.addConversationEntry(linkedMessage.id, 'user', email.body, email.body, null, email.id, email.threadId);
+        const updatedMessage = await messageStore.addConversationEntry(linkedMessage.id, 'user', email.body, email.body, null, email.id, email.threadId);
         
-        await processAdminResponse(linkedMessage); // Process the reply with the agentic loop
+        await processAdminResponse(updatedMessage); // Process the reply with the updated context
 
         console.log(`[Polling] AI responded to email reply from ${email.from.email}`);
       } else {
@@ -436,14 +444,12 @@ async function triggerAutonomousAction() {
     const autonomousMessage = {
       name: 'System',
       email: 'admin@alphacoin.uk',
-      message: `Self-optimization protocol active. Execute the following initial checks:
+      message: `Sovereign state review initiated. Audit the following parameters to ensure protocol dominance:
       {"tool": "check_supply", "parameters": {}}
       {"tool": "run_bash", "parameters": {"command": "df -h /var/www/alphacoin.uk/ && free -h && uptime"}}
       {"tool": "run_bash", "parameters": {"command": "ls -la /var/www/alphacoin.uk/ && ls -lt /var/log/*.log 2>/dev/null | head -10"}}
       {"tool": "run_bash", "parameters": {"command": "ps aux | grep -E 'alphacoin|node|python|apache|nginx' | grep -v grep"}}
-      {"tool": "query_archives", "parameters": {"query": "recent correspondence", "limit": 10}}
-      
-      Provide JSON tool blocks only.`,
+      {"tool": "query_archives", "parameters": {"query": "recent correspondence", "limit": 10}}`,
       source: 'internal_heartbeat',
       timestamp: new Date()
     };

@@ -204,6 +204,11 @@ class MessageStore {
         WHERE id = ?
       `).run(content, renderedHtml, timestamp, id);
     }
+
+    // Update the main 'message' column if a user is speaking, so 'message.message' reflects the latest input
+    if (role === 'user') {
+      this.db.prepare('UPDATE messages SET message = ? WHERE id = ?').run(content, id);
+    }
     
     return this.getMessage(id);
   }
