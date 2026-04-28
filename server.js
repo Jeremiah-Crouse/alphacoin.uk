@@ -28,7 +28,7 @@ const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 10
 let gmailPollingIntervalId;
 
 // Autonomous Loop: Every 30 minutes, Big Pickle evaluates his own business
-const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 30 * 60 * 1000;
+const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 5 * 60 * 1000;
 
 // Routes
 
@@ -257,7 +257,7 @@ async function processAdminResponse(message) {
   let adminResponseContent = '';
   let isLooping = true;
   let iterations = 0;
-  const MAX_ITERATIONS = 10; // Safety limit for autonomous reasoning
+  const MAX_ITERATIONS = 50; // Expanded limit for deeper autonomous reasoning
 
   // Helper to extract multiple JSON objects even if nested
   const extractJsonObjects = (str) => {
