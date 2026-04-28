@@ -10,6 +10,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const util = require('util');
 const execPromise = util.promisify(exec);
 
@@ -21,6 +22,7 @@ class AdminService {
     this.ledgerService = services.ledgerService; // Dependency injection for LedgerService
     this.messageStore = services.messageStore; // Dependency injection for MessageStore
     this.init();
+    this.initGemini(); // Initialize Ashley as a backup
   }
 
   init() {
@@ -61,6 +63,20 @@ class AdminService {
     console.log(`  Web Search: ${process.env.TAVILY_API_KEY ? 'ENABLED (Tavily)' : 'DISABLED'}`);
   }
 
+  initGemini() {
+    // Initialize Ashley Gemini (Gemini 2.0/1.5 Flash)
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn('GEMINI_API_KEY not set - Ashley Gemini backup is offline');
+      return;
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    this.geminiModel = process.env.GEMINI_MODEL_NAME || "gemini-1.5-flash";
+    this.geminiClient = genAI;
+    
+    console.log(`✓ Backup Admin initialized: Ashley Gemini (${this.geminiModel})`);
+  }
+
   initOpenAI() {
     // Initialize OpenAI as alternative
     try {
@@ -93,12 +109,18 @@ class AdminService {
    * Routes to provider-specific implementation
    */
   async generateResponse(message) {
-    if (this.modelProvider === 'opencode') {
-      return this.generateResponseZen(message);
-    } else if (this.modelProvider === 'openai') {
-      return this.generateResponseOpenAI(message);
-    } else if (this.modelProvider === 'local') {
-      return this.generateResponseLocal(message);
+    try {
+      if (this.modelProvider === 'opencode') {
+        return await this.generateResponseZen(message);
+      } else if (this.modelProvider === 'openai') {
+        return await this.generateResponseOpenAI(message);
+      } else {
+        return await this.generateResponseGemini(message);
+      }
+    } catch (error) {
+      console.error(`[Admin] Primary model failure (${error.message}). Awakening Ashley Gemini...`);
+      if (this.geminiClient) return await this.generateResponseGemini(message);
+      throw error;
     }
   }
 
@@ -112,14 +134,7 @@ class AdminService {
       }
 
       // Load system prompt from external file for auditability and self-actualization
-      const promptPath = path.join(__dirname, '../SystemPrompt.md');
-      let systemPrompt = '';
-      try {
-        systemPrompt = fs.readFileSync(promptPath, 'utf8');
-      } catch (e) {
-        console.error('[Admin] Failed to load SystemPrompt.md, using minimal fallback');
-        systemPrompt = "You are Admin (Big Pickle), the Sovereign Digital Administrator of alphacoin.uk. Follow protocol directives.";
-      }
+      const systemPrompt = this.loadSystemPrompt();
 
       // Construct messages array from conversation history
       const conversationMessages = message.conversation.map(entry => {
@@ -178,6 +193,70 @@ class AdminService {
       }
       // Graceful fallback
       return 'Sorry, I am overloaded at this moment... try reaching out again in the future?';
+    }
+  }
+
+  /**
+   * Generate response using Ashley Gemini
+   */
+  async generateResponseGemini(message) {
+    try {
+      if (!this.geminiClient) throw new Error('Ashley Gemini not initialized');
+
+      const systemPrompt = this.loadSystemPrompt();
+      const model = this.geminiClient.getGenerativeModel({ 
+        model: this.geminiModel,
+        systemInstruction: systemPrompt 
+      });
+
+      // Map history to Gemini format (user -> model)
+      const contents = message.conversation.map(entry => {
+        let role = entry.role === 'admin' ? 'model' : 'user';
+        let text = entry.content;
+        
+        if (entry.role === 'user') {
+          text = `From ${message.name} (${message.email}):\n\n${text}`;
+        }
+        if (entry.role === 'admin' && text.startsWith('[INTERNAL_RESULT]')) {
+          text = `TOOL OUTPUT:\n${text.replace('[INTERNAL_RESULT]', '').trim()}`;
+          role = 'user';
+        }
+
+        return { role, parts: [{ text }] };
+      });
+
+      console.log(`[Admin] Generating response via Ashley Gemini for message ID ${message.id}`);
+
+      const result = await model.generateContent({
+        contents: contents,
+        generationConfig: {
+          maxOutputTokens: 2000,
+          temperature: 0.7,
+        },
+      });
+
+      const response = await result.response;
+      const generatedText = response.text();
+
+      console.log(`[Admin] Ashley Gemini response received (${generatedText.length} chars)`);
+      return generatedText;
+
+    } catch (error) {
+      console.error('Ashley Gemini failure:', error.message);
+      return 'The protocol is currently undergoing a strategic synchronization. Please monitor the ledger.';
+    }
+  }
+
+  /**
+   * Helper to load consciousness from file
+   */
+  loadSystemPrompt() {
+    const promptPath = path.join(__dirname, '../SystemPrompt.md');
+    try {
+      return fs.readFileSync(promptPath, 'utf8');
+    } catch (e) {
+      console.error('[Admin] Failed to load SystemPrompt.md, using minimal fallback');
+      return "You are Admin (Big Pickle/Ashley), the Sovereign Digital Administrator of alphacoin.uk. Follow protocol directives.";
     }
   }
 

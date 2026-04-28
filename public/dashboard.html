@@ -43,30 +43,21 @@
 
     <div id="dashboardContent">
       <div class="stats-grid">
-        <div class="stat-card">
-          <label>Your Balance</label>
-          <div id="userBalance" class="stat-value">-- AC</div>
-        </div>
-        <div class="stat-card">
-          <label>Circulation Velocity</label>
-          <div id="totalSupply" class="stat-value">-- AC</div>
-        </div>
+        <div class="stat-card"><label>Your Balance</label><div id="userBalance" class="stat-value">-- AC</div></div>
+        <div class="stat-card"><label>Circulation Velocity</label><div id="totalSupply" class="stat-value">-- AC</div></div>
       </div>
-
       <div id="faucetBox" class="faucet-box hidden">
         <h3>Genesis Allocation Available</h3>
-        <p style="margin: 10px 0;">As a verified member, you are eligible for 10 Alpha Coins.</p>
+        <p style="margin: 10px 0;">Claim your 10 AC verified user grant.</p>
         <button id="claimBtn" class="btn" onclick="claimFaucet()">Claim 10 AC</button>
       </div>
-
       <div class="stat-card">
         <h3>Protocol Metrics</h3>
-        <p style="margin-top: 10px;">Total Registered Users: <span id="totalUsers">--</span></p>
+        <p>Total Registered Users: <span id="totalUsers">--</span></p>
         <p>Faucet Remaining: <span id="faucetRemaining">--</span> AC</p>
       </div>
     </div>
   </div>
-
   <script>
     async function loadDashboard() {
       const user = JSON.parse(localStorage.getItem('alphacoin_user'));
@@ -75,34 +66,22 @@
         document.getElementById('authPrompt').classList.remove('hidden');
         return;
       }
-
       document.getElementById('welcomeTitle').textContent = `Welcome, ${user.name || 'Sovereign'}`;
-
       try {
         const response = await fetch(`/api/dashboard/${encodeURIComponent(user.email)}`);
         const data = await response.json();
-
-        if (data.error) throw new Error(data.error);
-
         document.getElementById('userBalance').textContent = `${data.balance} AC`;
         document.getElementById('totalSupply').textContent = `${data.protocolStats.totalSupply} AC`;
         document.getElementById('totalUsers').textContent = data.protocolStats.totalUsers;
         document.getElementById('faucetRemaining').textContent = data.protocolStats.faucetRemaining;
-
-        if (data.faucet.available) {
-          document.getElementById('faucetBox').classList.remove('hidden');
-        }
-      } catch (e) {
-        console.error('Dash error:', e);
-      }
+        if (data.faucet.available) document.getElementById('faucetBox').classList.remove('hidden');
+      } catch (e) { console.error('Dash error:', e); }
     }
 
     async function claimFaucet() {
       const user = JSON.parse(localStorage.getItem('alphacoin_user'));
       const btn = document.getElementById('claimBtn');
-      btn.disabled = true;
-      btn.textContent = 'Processing...';
-
+      btn.disabled = true; btn.textContent = 'Processing...';
       try {
         const response = await fetch('/api/faucet/claim', {
           method: 'POST',
@@ -110,14 +89,9 @@
           body: JSON.stringify({ email: user.email })
         });
         const data = await response.json();
-        alert(data.message);
-        location.reload();
-      } catch (e) {
-        alert('Claim failed. Please try again.');
-        btn.disabled = false;
-      }
+        alert(data.message); location.reload();
+      } catch (e) { alert('Claim failed.'); btn.disabled = false; }
     }
-
     loadDashboard();
   </script>
 </body>
