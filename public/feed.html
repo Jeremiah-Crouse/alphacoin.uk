@@ -21,21 +21,12 @@
     }
 
     .header {
-      background: white;
-      border-bottom: 1px solid #e0e0e0;
-      padding: 20px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      margin: -20px -20px 0 -20px;
-    }
-
-    .header-content {
-      max-width: 900px;
-      margin: 0 auto;
       display: flex;
       align-items: center;
       gap: 15px;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #f0f0f0;
     }
 
     .logo {
@@ -58,8 +49,11 @@
     .container {
       max-width: 900px;
       margin: 0 auto;
-      flex: 1;
-      width: 100%;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 40px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       display: flex;
       flex-direction: column;
     }
@@ -142,20 +136,26 @@
       justify-content: center;
       gap: 20px;
       padding: 15px;
-      background: #333;
-      margin: 0 -20px 20px -20px;
+      background: #1a1a1a;
+      margin: -40px -40px 30px -40px;
+      border-radius: 8px 8px 0 0;
     }
 
     .nav-bar a {
       color: white;
       text-decoration: none;
       font-size: 14px;
-      text-transform: uppercase;
+      font-weight: 500;
       letter-spacing: 1px;
+      transition: color 0.2s;
     }
 
     .nav-bar a:hover {
-      color: #0066cc;
+      color: #3399ff;
+    }
+
+    .nav-bar a.active {
+      border-bottom: 2px solid #3399ff;
     }
 
     .balance-check {
@@ -228,23 +228,19 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-content">
+  <div class="container">
+    <div class="nav-bar">
+      <a href="/">Home</a>
+      <a href="/feed.html" class="active">Ledger</a>
+      <a href="/about.html">Strategy</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <div class="header">
       <div class="logo">
         <img src="images/acl.svg" alt="alphacoin">
       </div>
       <h1>Protocol Ledger</h1>
     </div>
-  </div>
-
-  <div class="nav-bar">
-    <a href="/">Home</a>
-    <a href="/feed.html" class="active">Ledger</a>
-    <a href="/about.html">Strategy</a>
-    <a href="/contact.html">Contact</a>
-  </div>
-
-  <div class="container">
     <div class="balance-check">
       <strong>Sovereign Access:</strong> 
       <input type="email" id="checkEmail" placeholder="Enter email to check balance...">
