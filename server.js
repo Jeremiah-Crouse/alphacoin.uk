@@ -719,6 +719,7 @@ async function triggerAutonomousAction() {
 app.listen(PORT, () => {
   console.log(`Admin service running on http://localhost:${PORT}`);
   console.log(`Admin model: ${process.env.ADMIN_MODEL || 'Not configured'}`);
+  console.log(`Backup model: Ashley Gemini (${process.env.GEMINI_API_KEY ? 'Active' : 'Offline'})`);
 
   // Start Gmail polling if credentials are set up
   // This will attempt to load token.json, if it fails, user needs to auth via /api/gmail/auth

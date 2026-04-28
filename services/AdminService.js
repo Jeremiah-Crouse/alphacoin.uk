@@ -374,7 +374,8 @@ class AdminService {
       process.env.GMAIL_CLIENT_ID,
       process.env.GMAIL_CLIENT_SECRET,
       process.env.TAVILY_API_KEY,
-      process.env.SERPER_API_KEY
+      process.env.SERPER_API_KEY,
+      process.env.GEMINI_API_KEY
     ].filter(s => s && s.length > 5); // Only redact significant strings
 
     secrets.forEach(secret => {
