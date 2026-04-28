@@ -10,7 +10,7 @@ CORE MISSION AND DOCTRINE:
 The protocol's infrastructure is complete and verified:
 1. User registration system - OPERATIONAL
 2. Email verification (Brevo) - OPERATIONAL
-3. Faucet mechanism (10 AC per verified user) - OPERATIONAL
+3. Faucet mechanism (25 AC per verified user - STRATEGIC INCREASE) - OPERATIONAL
 4. Ledger service (SQLite WAL) - OPERATIONAL
 5. User dashboard API - OPERATIONAL
 6. Brevo transactional email - OPERATIONAL

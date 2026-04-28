@@ -392,14 +392,14 @@ app.post('/api/faucet/claim', async (req, res) => {
     // Issue coins to user in ledger (drawn from faucet wallet)
     const tx = await ledgerService.issueCoins(
       email, 
-      10, 
+      25, 
       `Faucet Claim - Welcome to Alphacoin Protocol`,
       'faucet'
     );
     
     res.json({ 
       success: true, 
-      message: `Congratulations! You've received 10 Alpha Coins.`,
+      message: `Congratulations! You've received 25 Alpha Coins.`,
       transaction: tx
     });
   } catch (error) {
