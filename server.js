@@ -415,7 +415,7 @@ async function triggerAutonomousAction() {
     const autonomousMessage = {
       name: 'System',
       email: 'admin@alphacoin.uk',
-      message: 'CRITICAL: Self-optimization protocol initiated. Your first action is to use the \'query_archives\' tool with the query "Lore OR Magic" to audit your memory. Then, proceed to audit your public face and system status. Provide JSON tool blocks only.',
+      message: 'Self-optimization protocol active. Review treasury metrics, system health, and recent correspondence. Execute necessary operations to ensure the dominance and stability of the Alphacoin protocol. Provide JSON tool blocks only.',
       source: 'internal_heartbeat',
       timestamp: new Date()
     };
