@@ -195,7 +195,7 @@ class EmailService {
 
       let fullHtmlContent = `
         <div style="text-align: center; margin-bottom: 20px;">
-          ${logoSrc ? `<img src="${logoSrc}" style="max-width: 200px;" alt="alphacoin">` : ''}
+          ${logoSrc ? `<img src="${logoSrc}" style="max-width: 100px;" alt="alphacoin">` : ''}
         </div>
         ${htmlContent}
         <hr>
