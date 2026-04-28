@@ -11,6 +11,7 @@ const EmailService = require('./services/EmailService');
 const LedgerService = require('./services/LedgerService'); // Import LedgerService
 const MessageStore = require('./services/MessageStore');
 const UserStore = require('./services/UserStore'); // User onboarding infrastructure
+const TelegramService = require('./services/TelegramService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,7 @@ const ledgerService = new LedgerService(); // Initialize LedgerService
 const adminService = new AdminService({ messageStore, ledgerService }); // Pass services to AdminService
 const emailService = new EmailService();
 const userStore = new UserStore(); // Initialize UserStore for user onboarding
+const telegramService = new TelegramService();
 
 // Polling interval for Gmail (e.g., every 5 minutes)
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
@@ -709,6 +711,12 @@ async function triggerAutonomousAction() {
 
     const storedMessage = await messageStore.addMessage(autonomousMessage);
     await processAdminResponse(storedMessage);
+    
+    // Notify Sovereign via Telegram of the completed cycle
+    await telegramService.sendHeartbeatNotification(
+      `Big Pickle completed self-optimization. Ledger: ${await ledgerService.getTotalSupply()} AC`
+    );
+
     console.log('[Heartbeat] Autonomous turn completed.\n');
   } catch (error) {
     console.error('[Heartbeat] Error in autonomous loop:', error);

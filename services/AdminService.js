@@ -191,8 +191,8 @@ class AdminService {
       } else {
         console.error(`  Message: ${error.message}`);
       }
-      // Graceful fallback
-      return 'Sorry, I am overloaded at this moment... try reaching out again in the future?';
+      // Throw the error so the wrapper can trigger the fallback model (Ashley)
+      throw error;
     }
   }
 
