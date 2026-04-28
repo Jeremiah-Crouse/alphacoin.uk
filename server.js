@@ -1,4 +1,7 @@
-require('dotenv').config({ path: '/var/www/secure/.env' });
+const fs = require('fs');
+const secureEnv = '/var/www/secure/.env';
+// Prioritize the secure env path if it exists, otherwise fall back to local .env
+require('dotenv').config({ path: fs.existsSync(secureEnv) ? secureEnv : undefined });
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -49,6 +52,10 @@ app.get('/feed.html', (req, res) => {
 
 app.get('/about.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'about.html'));
+});
+
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 // API: Initiate Gmail OAuth flow
@@ -298,7 +305,8 @@ app.post('/api/users/register', async (req, res) => {
     const user = await userStore.createUser(email, password, name);
     
     // Send verification email
-    const verifyUrl = `https://alphacoin.uk/api/users/verify?token=${user.verificationToken}`;
+    const baseUrl = process.env.BASE_URL || 'https://alphacoin.uk';
+    const verifyUrl = `${baseUrl}/api/users/verify?token=${user.verificationToken}`;
     await emailService.sendVerificationEmail(email, user.name, verifyUrl);
     
     res.json({ 

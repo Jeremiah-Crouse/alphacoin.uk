@@ -58,6 +58,7 @@ class AdminService {
     console.log(`✓ Admin initialized with OpenCode Zen Protocol`);
     console.log(`  Model: ${this.model} (Big Pickle)`);
     console.log(`  Endpoint: ${this.zenBaseUrl}`);
+    console.log(`  Web Search: ${process.env.TAVILY_API_KEY ? 'ENABLED (Tavily)' : 'DISABLED'}`);
   }
 
   initOpenAI() {
@@ -351,7 +352,9 @@ class AdminService {
         query: query,
         search_depth: "smart"
       });
-      return JSON.stringify(response.data.results.map(r => ({ title: r.title, url: r.url, content: r.content })), null, 2);
+      // Return only top 3 results and truncate content to prevent token-count 429 errors
+      const optimizedResults = response.data.results.slice(0, 3).map(r => ({ title: r.title, url: r.url, snippet: r.content.substring(0, 300) + '...' }));
+      return JSON.stringify(optimizedResults, null, 2);
     } catch (error) {
       return `Error performing web search: ${error.message}`;
     }
