@@ -494,12 +494,15 @@ class AdminService {
     let result;
     switch (toolName) {
       case 'run_bash':
+      case 'run_command': // Alias for common hallucination
         result = await this.executeBash(parameters.command);
         break;
       case 'read_file':
         result = await this.readFile(parameters.filePath || parameters.path);
         break;
       case 'modify_file':
+      case 'write_file': // Alias for common hallucination
+      case 'edit_file':  // Alias for common hallucination
         result = await this.modifyFile(parameters.filePath || parameters.path, parameters.content);
         break;
       case 'replace_in_file':
