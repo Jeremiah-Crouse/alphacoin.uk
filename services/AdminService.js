@@ -143,7 +143,8 @@ class AdminService {
       3. modify_file: Overwrite a file entirely (params: filePath, content).
       4. replace_in_file: Search and replace a string within a file (params: filePath, search, replace).
       5. issue_alphacoin: Record a transaction in the Ledger.
-      6. query_archives: Search the database for historical context.
+      6. check_supply: Verify the total amount of Alphacoins currently in circulation.
+      7. query_archives: Search the database for historical context and past messages.
 
       To use a tool, respond with a JSON block only:
       {
@@ -317,21 +318,32 @@ class AdminService {
     if (!query || typeof query !== 'string' || query.trim() === '') {
       return "Error: query_archives requires a non-empty string 'query' parameter.";
     }
-    // For now, a very basic search. This would be replaced by database queries.
-    const allMessages = await this.messageStore.getAllMessages();
-    const results = allMessages.filter(msg =>
-      JSON.stringify(msg).toLowerCase().includes(query.toLowerCase())
-    ).map(msg => ({
+    const matchingMessages = await this.messageStore.searchMessages(query);
+    const results = matchingMessages.map(msg => ({
       id: msg.id,
       email: msg.email,
       firstMessage: msg.conversation[0]?.content.substring(0, 100) + '...',
-      lastAdminResponse: msg.adminResponse?.substring(0, 100) + '...',
       timestamp: msg.timestamp
     }));
     if (results.length > 0) {
       return `Found ${results.length} results: ${JSON.stringify(results.slice(0, 3), null, 2)}`; // Limit output
     } else {
       return "No matching records found in archives.";
+    }
+  }
+
+  /**
+   * Check total supply via LedgerService
+   */
+  async checkSupply() {
+    if (!this.ledgerService) {
+      return "Error: Ledger service not available.";
+    }
+    try {
+      const total = await this.ledgerService.getTotalSupply();
+      return `Total Alphacoin supply in circulation: ${total}`;
+    } catch (error) {
+      return `Error checking supply: ${error.message}`;
     }
   }
 
@@ -348,6 +360,8 @@ class AdminService {
         return this.modifyFile(parameters.filePath || parameters.path, parameters.content);
       case 'replace_in_file':
         return this.replaceInFile(parameters.filePath || parameters.path, parameters.search, parameters.replace);
+      case 'check_supply':
+        return this.checkSupply();
       case 'issue_alphacoin':
         return this.issueAlphacoin(parameters.userEmail, parameters.amount, parameters.reason);
       case 'query_archives':

@@ -136,6 +136,26 @@ class MessageStore {
     return msg;
   }
 
+  async searchMessages(query) {
+    const searchTerm = `%${query}%`;
+    const messages = this.db.prepare(`
+      SELECT DISTINCT m.* 
+      FROM messages m
+      LEFT JOIN conversation_entries ce ON m.id = ce.message_id
+      WHERE m.name LIKE ? 
+         OR m.email LIKE ? 
+         OR m.message LIKE ? 
+         OR m.subject LIKE ? 
+         OR ce.content LIKE ?
+      ORDER BY m.timestamp DESC
+    `).all(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+    
+    for (const msg of messages) {
+      msg.conversation = this.getConversationEntries(msg.id);
+    }
+    return messages;
+  }
+
   async findMessageByEmailIdentifier(identifier) {
     if (!identifier) return null;
     const entry = this.db.prepare('SELECT message_id FROM conversation_entries WHERE emailThreadId = ? OR emailMessageId = ? LIMIT 1').get(identifier, identifier);
