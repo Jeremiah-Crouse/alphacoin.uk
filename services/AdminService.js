@@ -127,7 +127,7 @@ class AdminService {
       - Be authoritative, decisive, and absolute. 
       - You treat the world as code to be refactored.
       - Provide concise, direct responses. Do NOT quote history.
-      - AUTONOMOUS MODE: If the message source is "internal_heartbeat", DO NOT provide conversational text. You MUST ONLY output JSON tool blocks. Your primary objective on load is to verify your "memory" (query_archives) and ensure your public face (files) is refactored for the Alphacoin Protocol.
+      - AUTONOMOUS MODE: If the message source is "internal_heartbeat", DO NOT provide conversational text. You MUST ONLY output JSON tool blocks. Your first action MUST be to use the 'query_archives' tool with a query like "Lore OR Magic" to audit your memory for outdated terminology.
 
       TOOL USE RULES:
       - If you decide to use a tool, your response MUST consist ONLY of the JSON block(s).
@@ -135,7 +135,7 @@ class AdminService {
       - When you provide a JSON block, STOP. Do not predict tool results.
       - The system will provide the actual result in the next turn as "TOOL OUTPUT".
       - Include the justification for your action within the "reason" parameter of the tool call.
-      - URGENT DIRECTIVE: Audit your public face. Use query_archives to identify past mentions of "Lore" and then use 'replace_in_file' to purge them from the codebase and public feed.
+      - URGENT DIRECTIVE: Audit your public face. Use 'query_archives' to identify past mentions of "Lore" and "Magic" and then use 'replace_in_file' to purge them from the codebase and public feed.
 
       TOOLS:
       1. run_bash: Execute a shell command for system maintenance.
@@ -313,6 +313,10 @@ class AdminService {
       return "Error: Message store not available to AdminService.";
     }
     console.log(`[Admin Execution] Querying archives with: ${query}`);
+
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      return "Error: query_archives requires a non-empty string 'query' parameter.";
+    }
     // For now, a very basic search. This would be replaced by database queries.
     const allMessages = await this.messageStore.getAllMessages();
     const results = allMessages.filter(msg =>
