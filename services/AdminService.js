@@ -184,7 +184,7 @@ class AdminService {
           ...conversationMessages // Pass the entire conversation history
         ],
         temperature: 0.7,
-        max_tokens: 2000, // Increased to allow for longer tool calls and responses
+        max_tokens: 4096, // Doubled to prevent truncation during large file refactors
         timeout: 30000 // 30 second timeout for AI response
       });
 
@@ -247,7 +247,7 @@ class AdminService {
       const result = await model.generateContent({
         contents: contents,
         generationConfig: {
-          maxOutputTokens: 2000,
+          maxOutputTokens: 4096,
           temperature: 0.7,
         },
       });

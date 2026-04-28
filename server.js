@@ -524,11 +524,16 @@ async function processAdminResponse(message) {
     
     const jsonBlocks = extractJsonObjects(redactedRawResponse);
 
+    // If no closed JSON blocks found but the message starts with a '{', it's likely truncated
+    if (jsonBlocks.length === 0 && redactedRawResponse.trim().startsWith('{')) {
+      console.warn(`[Admin Agent] Detected truncated tool call from ${this.activeProvider}. Attempting to recover or flagging for Sovereign.`);
+    }
+
     if (jsonBlocks.length > 0) {
       console.log(`[Admin Agent] Detected ${jsonBlocks.length} tool call(s) in turn ${iterations}.`);
       
       // Record the AI's intent (the tool calls) to the history
-      const toolCallNotice = emailService.markdownToHtml(`*Big Pickle is executing ${jsonBlocks.length} system operations...*`);
+      const toolCallNotice = emailService.markdownToHtml(`*Admin is executing ${jsonBlocks.length} system operations...*`);
       currentMessage = await messageStore.addConversationEntry(
         currentMessage.id, 'admin', redactedRawResponse, toolCallNotice, null, null, null, false
       );
