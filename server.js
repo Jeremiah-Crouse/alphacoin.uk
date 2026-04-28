@@ -323,7 +323,11 @@ async function processAdminResponse(message) {
   console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
 
   // Send response email and get the HTML
-  const sentHtml = await emailService.sendAdminResponse(currentMessage.email, currentMessage.name, adminResponseContent);
+  let sentHtml = null;
+  if (message.source !== 'internal_heartbeat') {
+    sentHtml = await emailService.sendAdminResponse(currentMessage.email, currentMessage.name, adminResponseContent);
+  }
+
   const responseHtml = emailService.markdownToHtml(adminResponseContent);
   
   // Add the AI's final text response to the conversation
@@ -411,7 +415,7 @@ async function triggerAutonomousAction() {
     const autonomousMessage = {
       name: 'System',
       email: 'admin@alphacoin.uk',
-      message: 'Self-optimization protocol initiated. Evaluate the ledger, server status, and recent archives. Execute any necessary refactoring or geopolitical adjustments.',
+      message: 'CRITICAL: Self-optimization protocol initiated. Execute tool calls to audit your public face and system status. Do not respond with text; provide JSON tool blocks only to begin your work.',
       source: 'internal_heartbeat',
       timestamp: new Date()
     };
