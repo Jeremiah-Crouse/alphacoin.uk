@@ -39,7 +39,8 @@ class MessageStore {
         adminResponseHtml TEXT,
         adminResponseTime DATETIME,
         emailMessageId TEXT,
-        emailThreadId TEXT
+        emailThreadId TEXT,
+        requestFollowUp INTEGER DEFAULT 1
       );
       CREATE TABLE IF NOT EXISTS conversation_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,11 +92,11 @@ class MessageStore {
       ? messageData.timestamp.toISOString() 
       : (messageData.timestamp || new Date().toISOString());
     
-    const insertMsg = this.db.prepare(`INSERT INTO messages (id, name, email, message, subject, source, timestamp, emailMessageId, emailThreadId) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const insertMsg = this.db.prepare(`INSERT INTO messages (id, name, email, message, subject, source, timestamp, emailMessageId, emailThreadId, requestFollowUp) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     
     insertMsg.run(id, messageData.name, messageData.email, messageData.message, messageData.subject || null, 
-      messageData.source || 'contact_form', timestamp, messageData.emailMessageId || null, messageData.emailThreadId || null);
+      messageData.source || 'contact_form', timestamp, messageData.emailMessageId || null, messageData.emailThreadId || null, messageData.requestFollowUp !== false ? 1 : 0);
 
     await this.addConversationEntry(id, 'user', messageData.message, null, null, messageData.emailMessageId, messageData.emailThreadId);
     return this.getMessage(id);

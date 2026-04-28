@@ -137,6 +137,35 @@
       order: -1; /* Keep at top */
     }
 
+    .nav-bar {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 15px;
+      background: #333;
+      margin: 0 -20px 20px -20px;
+    }
+
+    .nav-bar a {
+      color: white;
+      text-decoration: none;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .nav-bar a:hover {
+      color: #0066cc;
+    }
+
+    .balance-check {
+      background: #eee;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
     .no-response {
       color: #999;
       font-style: italic;
@@ -204,11 +233,23 @@
       <div class="logo">
         <img src="images/acl.svg" alt="alphacoin">
       </div>
-      <h1>Public Feed</h1>
+      <h1>Protocol Ledger</h1>
     </div>
   </div>
 
+  <div class="nav-bar">
+    <a href="/">Home</a>
+    <a href="/feed.html">Ledger</a>
+    <a href="/contact.html">Contact</a>
+  </div>
+
   <div class="container">
+    <div class="balance-check">
+      <strong>Sovereign Access:</strong> 
+      <input type="email" id="checkEmail" placeholder="Enter email to check balance...">
+      <button onclick="checkBalance()">Verify</button>
+      <div id="balanceResult"></div>
+    </div>
     <div class="load-more-container">
       <div id="loadMoreSentinel" style="height: 20px; margin-bottom: 20px; color: #999; font-size: 12px; display: none; text-align: center;">Retrieving older records...</div>
     </div>
@@ -221,7 +262,7 @@
     <a href="/">← Home</a>
     <a href="/contact.html">Send Message →</a>
     <br>
-    <button class="refresh-btn" onclick="loadMessages()">Refresh Feed</button>
+    <button class="refresh-btn" onclick="refreshNew()">Refresh Feed</button>
   </div>
 
   <script>
@@ -385,6 +426,12 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    async function checkBalance() {
+      const email = document.getElementById('checkEmail').value;
+      // Placeholder for future logic
+      document.getElementById('balanceResult').textContent = "Verification pending protocol update.";
     }
 
     // Lazy loading scroll trigger

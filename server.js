@@ -27,7 +27,7 @@ const emailService = new EmailService();
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
 let gmailPollingIntervalId;
 
-// Autonomous Loop: Every 30 minutes, Big Pickle evaluates his own business
+// Autonomous Loop: Every 5 minutes, Big Pickle evaluates his own business
 const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 5 * 60 * 1000;
 
 // Routes
@@ -89,7 +89,7 @@ function startGmailPolling() {
 // API: Submit a message
 app.post('/api/messages', async (req, res) => {
   try {
-    const { name, email, message } = req.body;
+    const { name, email, message, requestFollowUp } = req.body;
 
     if (!name || !email || !message) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -105,6 +105,7 @@ app.post('/api/messages', async (req, res) => {
       name,
       email,
       message,
+      requestFollowUp: requestFollowUp === undefined ? true : (requestFollowUp === 'true' || requestFollowUp === true || requestFollowUp === 'on'),
       source: 'contact_form',
       timestamp: new Date(),
     };
@@ -337,7 +338,7 @@ async function processAdminResponse(message) {
 
   // Send response email and get the HTML
   let sentHtml = null;
-  if (message.source !== 'internal_heartbeat') {
+  if (message.source !== 'internal_heartbeat' && message.requestFollowUp !== 0) {
     // Find the latest user message to quote in the email reply
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
@@ -444,11 +445,10 @@ async function triggerAutonomousAction() {
     const autonomousMessage = {
       name: 'System',
       email: 'admin@alphacoin.uk',
-      message: `Sovereign Protocol Monitor: Initiate a comprehensive system and treasury audit. 
-      1. Verify total circulation.
-      2. Evaluate server resources (disk, memory, uptime).
-      3. Audit recent log activity for anomalies.
-      4. Check recent correspondence archives for priority updates.`,
+      message: `Sovereign Protocol Monitor: 
+      1. Read About.md and follow the best practices listed therein.
+      2. Audit system health and treasury.
+      3. Based on recent events, refactor About.md to improve the global strategy.`,
       source: 'internal_heartbeat',
       timestamp: new Date()
     };
@@ -476,7 +476,7 @@ app.listen(PORT, () => {
 
   // Start the Autonomous Loop and run once immediately on load
   setInterval(triggerAutonomousAction, AUTONOMOUS_INTERVAL);
-  console.log(`Autonomous heartbeat active. Big Pickle will self-optimize every ${AUTONOMOUS_INTERVAL / 60000} minutes.`);
+  console.log(`Autonomous heartbeat active. Big Pickle is awaiting user input or self-optimizing every ${AUTONOMOUS_INTERVAL / 60000} minutes.`);
   
   // Initial self-optimization on startup
   triggerAutonomousAction();
