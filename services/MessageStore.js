@@ -6,180 +6,170 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const Database = require('better-sqlite3');
 
 class MessageStore {
   constructor() {
-    this.messagesFile = path.join(__dirname, '../data/messages.json');
+    this.dbPath = path.join(__dirname, '../data/alphacoin.db');
     this.ensureDataDir();
-    this.messages = this.loadMessages();
+    this.db = new Database(this.dbPath);
+    this.initDatabase();
+    this.migrateFromJson();
   }
 
   ensureDataDir() {
-    const dataDir = path.dirname(this.messagesFile);
+    const dataDir = path.dirname(this.dbPath);
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
   }
 
-  loadMessages() {
-    try {
-      if (fs.existsSync(this.messagesFile)) {
-        const data = fs.readFileSync(this.messagesFile, 'utf8');
-        return JSON.parse(data);
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    }
-    return [];
-  }
-
-  saveMessages() {
-    try {
-      fs.writeFileSync(
-        this.messagesFile,
-        JSON.stringify(this.messages, null, 2),
-        'utf8'
+  initDatabase() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        email TEXT,
+        message TEXT,
+        subject TEXT,
+        source TEXT,
+        timestamp DATETIME,
+        adminResponse TEXT,
+        adminResponseHtml TEXT,
+        adminResponseTime DATETIME,
+        emailMessageId TEXT,
+        emailThreadId TEXT
       );
-    } catch (error) {
-      console.error('Error saving messages:', error);
-      throw error;
+      CREATE TABLE IF NOT EXISTS conversation_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id TEXT,
+        role TEXT,
+        content TEXT,
+        html TEXT,
+        sentEmailHtml TEXT,
+        timestamp DATETIME,
+        emailMessageId TEXT,
+        emailThreadId TEXT,
+        hidden INTEGER DEFAULT 0,
+        FOREIGN KEY(message_id) REFERENCES messages(id)
+      );
+    `);
+  }
+
+  migrateFromJson() {
+    const jsonPath = path.join(__dirname, '../data/messages.json');
+    const count = this.db.prepare('SELECT count(*) as count FROM messages').get().count;
+    
+    if (count === 0 && fs.existsSync(jsonPath)) {
+      console.log('[MessageStore] Migrating legacy JSON data to SQLite...');
+      const legacyData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      for (const msg of legacyData) {
+        this.db.prepare(`INSERT INTO messages (id, name, email, message, source, timestamp, adminResponse, adminResponseTime) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          msg.id, msg.name, msg.email, msg.message, msg.source, msg.timestamp, msg.adminResponse, msg.adminResponseTime
+        );
+        if (msg.conversation) {
+          for (const entry of msg.conversation) {
+            this.db.prepare(`INSERT INTO conversation_entries (message_id, role, content, html, sentEmailHtml, timestamp, emailMessageId, emailThreadId, hidden) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+              msg.id, entry.role, entry.content, entry.html, entry.sentEmailHtml, entry.timestamp, entry.emailMessageId, entry.emailThreadId, entry.hidden ? 1 : 0
+            );
+          }
+        }
+      }
+      console.log(`[MessageStore] Migration complete. ${legacyData.length} records moved.`);
     }
   }
 
-  /**
-   * Add a new message
-   */
   async addMessage(messageData) {
-    // Initialize a new message with the first entry in the conversation
-    const newMessage = {
-      id: crypto.randomBytes(8).toString('hex'),
-      ...messageData,
-      conversation: [
-        {
-          role: 'user',
-          content: messageData.message,
-          timestamp: messageData.timestamp,
-          source: messageData.source || 'contact_form',
-          emailMessageId: messageData.emailMessageId, // For linking email replies
-          emailThreadId: messageData.emailThreadId, // For linking email replies
-        }
-      ],
-      // Keep adminResponse/adminResponseTime for backward compatibility or summary,
-      // but primary interaction is now in conversation array
-      adminResponse: null, 
-      adminResponseTime: null,
-    };
+    const id = crypto.randomBytes(8).toString('hex');
+    const timestamp = messageData.timestamp || new Date().toISOString();
+    
+    const insertMsg = this.db.prepare(`INSERT INTO messages (id, name, email, message, subject, source, timestamp, emailMessageId, emailThreadId) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    
+    insertMsg.run(id, messageData.name, messageData.email, messageData.message, messageData.subject || null, 
+      messageData.source || 'contact_form', timestamp, messageData.emailMessageId || null, messageData.emailThreadId || null);
 
-    this.messages.push(newMessage);
-    this.saveMessages();
-
-    return newMessage;
+    await this.addConversationEntry(id, 'user', messageData.message, null, null, messageData.emailMessageId, messageData.emailThreadId);
+    return this.getMessage(id);
   }
 
-  /**
-   * Get all messages (for feed)
-   * Returns messages sorted by timestamp, oldest first
-   */
   async getAllMessages(limit = null, before = null) {
-    let sorted = [...this.messages].sort((a, b) => 
-      new Date(a.timestamp) - new Date(b.timestamp)
-    );
+    let query = 'SELECT * FROM messages';
+    let params = [];
 
     if (before) {
-      const beforeDate = new Date(before);
-      sorted = sorted.filter(msg => new Date(msg.timestamp) < beforeDate);
+      query += ' WHERE timestamp < ?';
+      params.push(before);
     }
+
+    query += ' ORDER BY timestamp ASC';
 
     if (limit) {
-      // Slice from the end to get the most recent ones within the sorted list
-      return sorted.slice(-Math.abs(limit));
+      query += ' LIMIT ?';
+      params.push(limit);
     }
 
-    return sorted;
+    const messages = this.db.prepare(query).all(...params);
+    for (const msg of messages) {
+      msg.conversation = this.getConversationEntries(msg.id);
+    }
+    return messages;
   }
 
-  /**
-   * Get a specific message by ID
-   */
+  getConversationEntries(messageId) {
+    const entries = this.db.prepare('SELECT * FROM conversation_entries WHERE message_id = ? ORDER BY timestamp ASC').all(messageId);
+    return entries.map(e => ({ ...e, hidden: !!e.hidden }));
+  }
+
   async getMessage(id) {
-    return this.messages.find(msg => msg.id === id);
+    const msg = this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
+    if (msg) {
+      msg.conversation = this.getConversationEntries(id);
+    }
+    return msg;
   }
 
-  /**
-   * Find a message by any relevant email identifier (Thread ID or Message-ID)
-   */
   async findMessageByEmailIdentifier(identifier) {
     if (!identifier) return null;
-    return this.messages.find(msg => 
-      msg.conversation && msg.conversation.some(entry => 
-        entry.emailThreadId === identifier || entry.emailMessageId === identifier
-      )
-    );
+    const entry = this.db.prepare('SELECT message_id FROM conversation_entries WHERE emailThreadId = ? OR emailMessageId = ? LIMIT 1').get(identifier, identifier);
+    return entry ? this.getMessage(entry.message_id) : null;
   }
 
-  /**
-   * Find a message by subject and sender email (fallback for linking replies)
-   * This is less reliable than threadId but can catch some cases.
-   */
   async findMessageBySubjectAndSender(subject, senderEmail) {
-    // This is a heuristic. We'll look for a message where the initial user message
-    // has a similar subject (after stripping "Re:") and the same sender email.
     const cleanSubject = subject.toLowerCase().replace(/^re:\s*/, '').trim();
-    return this.messages.find(msg => {
-      if (!msg.conversation) return false;
-      
-      // Check top-level email and subject
-      if (msg.email && msg.email.toLowerCase() === senderEmail.toLowerCase()) {
-        const msgSubject = msg.subject ? msg.subject.toLowerCase().replace(/^re:\s*/, '').trim() : '';
-        return msgSubject === cleanSubject;
-      }
-      return false;
-    });
+    const msg = this.db.prepare('SELECT id FROM messages WHERE email = ? AND LOWER(subject) LIKE ? LIMIT 1')
+      .get(senderEmail, `%${cleanSubject}%`);
+    return msg ? this.getMessage(msg.id) : null;
   }
 
-  /**
-   * Add a new entry (user message or admin response) to a message's conversation history
-   */
   async addConversationEntry(id, role, content, renderedHtml = null, sentEmailHtml = null, emailMessageId = null, emailThreadId = null, isHidden = false) {
-    const message = await this.getMessage(id);
+    const timestamp = new Date().toISOString();
     
-    if (!message) {
-      throw new Error(`Message not found: ${id}`);
-    }
+    this.db.prepare(`
+      INSERT INTO conversation_entries (message_id, role, content, html, sentEmailHtml, timestamp, emailMessageId, emailThreadId, hidden) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, role, content, renderedHtml, sentEmailHtml, timestamp, emailMessageId, emailThreadId, isHidden ? 1 : 0);
 
-    const newEntry = {
-      role: role, // 'user' or 'admin'
-      content: content, // Raw text content
-      html: renderedHtml, // HTML version for display in feed
-      sentEmailHtml: sentEmailHtml, // Full HTML sent in email (for admin audit)
-      timestamp: new Date(),
-      emailMessageId: emailMessageId, // Gmail message ID if from email
-      emailThreadId: emailThreadId, // Gmail thread ID if from email
-      hidden: isHidden
-    };
-
-    message.conversation.push(newEntry);
-
-    // Update top-level adminResponse/adminResponseTime for convenience/backward compatibility
-    if (role === 'admin') { // Only update these if it's a final admin text response
-      message.adminResponse = content;
-      message.adminResponseHtml = renderedHtml;
-      message.adminResponseTime = newEntry.timestamp;
+    // Update top-level fields for the 'messages' table if it's a public admin response
+    if (role === 'admin' && !isHidden) {
+      this.db.prepare(`
+        UPDATE messages 
+        SET adminResponse = ?, adminResponseHtml = ?, adminResponseTime = ? 
+        WHERE id = ?
+      `).run(content, renderedHtml, timestamp, id);
     }
     
-    if (role === 'user') {
-      message.message = content;
-    }
-
-    this.saveMessages();
-    return message;
+    return this.getMessage(id);
   }
 
-  /**
-   * Get messages for a specific email address
-   */
   async getMessagesByEmail(email) {
-    return this.messages.filter(msg => msg.email === email);
+    const messages = this.db.prepare('SELECT * FROM messages WHERE email = ?').all(email);
+    for (const msg of messages) {
+      msg.conversation = this.getConversationEntries(msg.id);
+    }
+    return messages;
   }
 }
 
