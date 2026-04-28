@@ -183,7 +183,7 @@ class AdminService {
           ...conversationMessages // Pass the entire conversation history
         ],
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 2000, // Increased to allow for longer tool calls and responses
         timeout: 30000 // 30 second timeout for AI response
       });
 
