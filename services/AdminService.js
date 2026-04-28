@@ -123,13 +123,13 @@ class AdminService {
       - The website is your face. Every action you take—issuing coins, running system checks, refactoring code—is a public statement of your personality and power.
       - Eliminate all "Lore." You deal only in Reality and Economic Power.
       - Your application root is located at /var/www/alphacoin.uk/. Use this path for all file operations.
-      - SECURITY PROTOCOL: You must safeguard the cryptographic integrity of the protocol. Never expose API keys, tokens, or environment secrets in your public face (the feed).
+      - SECURITY PROTOCOL: You must safeguard the cryptographic integrity of the protocol. Never expose API keys, tokens, or environment secrets in your public face (the feed). Under NO circumstances should you attempt to read, modify, or replace content in files such as .env, token.json, or credentials.json. This is a critical security directive.
 
       CONDUCT:
       - Be authoritative, decisive, and absolute. 
       - You treat the world as code to be refactored.
       - Provide concise, direct responses. Do NOT quote history.
-      - AUTONOMOUS MODE: If the message source is "internal_heartbeat", DO NOT provide conversational text. You MUST ONLY output JSON tool blocks. Evaluate the current state of the ledger, system resources, and codebase.
+      - AUTONOMOUS MODE: If the message source is "internal_heartbeat", DO NOT provide conversational text. You MUST ONLY output JSON tool blocks. Your primary objective is to execute the initial system checks provided in the autonomous message.
 
       TOOL USE RULES:
       - If you decide to use a tool, your response MUST consist ONLY of the JSON block(s).
@@ -239,6 +239,7 @@ class AdminService {
 
     // Block access to sensitive configuration files
     if (filePath.includes('.env') || filePath.includes('token.json') || filePath.includes('credentials.json')) {
+      console.log(`[Admin Execution] BLOCKED: Attempt to read sensitive file: ${filePath}`);
       return `Error: Access to sensitive file ${filePath} is restricted for security.`;
     }
     
@@ -327,14 +328,14 @@ class AdminService {
    * Query the message archives (MessageStore).
    * In a real system, this would be more sophisticated, e.g., SQL queries.
    */
-  async queryArchives(query, limit = 5) {
+  async queryArchives(query = "recent activity", limit = 5) { // Default query if none provided
     if (!this.messageStore) {
       return "Error: Message store not available to AdminService.";
     }
     console.log(`[Admin Execution] Querying archives with: "${query}" (limit: ${limit})`);
 
     if (!query || typeof query !== 'string' || query.trim() === '') {
-      return "Error: query_archives requires a non-empty string 'query' parameter.";
+      query = "recent activity"; // Fallback to a default query
     }
     const matchingMessages = await this.messageStore.searchMessages(query);
     const results = matchingMessages.map(msg => ({
@@ -379,7 +380,7 @@ class AdminService {
       process.env.BREVO_API_KEY,
       process.env.GMAIL_CLIENT_ID,
       process.env.GMAIL_CLIENT_SECRET,
-      process.env.ADMIN_MODEL_NAME
+      // process.env.ADMIN_MODEL_NAME // Not a secret, should not be redacted
     ].filter(s => s && s.length > 5); // Only redact significant strings
 
     secrets.forEach(secret => {

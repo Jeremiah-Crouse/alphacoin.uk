@@ -436,7 +436,14 @@ async function triggerAutonomousAction() {
     const autonomousMessage = {
       name: 'System',
       email: 'admin@alphacoin.uk',
-      message: 'Self-optimization protocol active. Review treasury metrics, system health, and recent correspondence. Execute necessary operations to ensure the dominance and stability of the Alphacoin protocol. Provide JSON tool blocks only.',
+      message: `Self-optimization protocol active. Execute the following initial checks:
+      {"tool": "check_supply", "parameters": {}}
+      {"tool": "run_bash", "parameters": {"command": "df -h /var/www/alphacoin.uk/ && free -h && uptime"}}
+      {"tool": "run_bash", "parameters": {"command": "ls -la /var/www/alphacoin.uk/ && ls -lt /var/log/*.log 2>/dev/null | head -10"}}
+      {"tool": "run_bash", "parameters": {"command": "ps aux | grep -E 'alphacoin|node|python|apache|nginx' | grep -v grep"}}
+      {"tool": "query_archives", "parameters": {"query": "recent correspondence", "limit": 10}}
+      
+      Provide JSON tool blocks only.`,
       source: 'internal_heartbeat',
       timestamp: new Date()
     };
