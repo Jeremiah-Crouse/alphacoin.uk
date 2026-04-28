@@ -193,12 +193,16 @@ class AdminService {
       console.log(`[Admin] Zen Protocol Response Status: ${response.status}`);
       
       // Extract response from Zen Protocol format
-      const generatedText = 
-        response.data?.choices?.[0]?.message?.content || 
-        response.data?.choices?.[0]?.text || 
-        response.data?.choices?.[0]?.content ||
-        response.data?.text ||
-        'Thank you for reaching out! I will review your message shortly.';
+      let generatedText = null;
+      if (response.data?.choices?.[0]) {
+        const choice = response.data.choices[0];
+        generatedText = choice.message?.content ?? choice.text ?? choice.content;
+      }
+      
+      if (generatedText === null || generatedText === undefined) {
+        console.warn('[Admin] Unrecognized response structure from Zen Protocol. Falling back to status message.');
+        generatedText = 'Protocol synchronization in progress. I will provide a full update momentarily.';
+      }
 
       console.log(`[Admin] Successfully received response (${generatedText.length} chars)`);
       return generatedText;

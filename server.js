@@ -444,12 +444,11 @@ async function triggerAutonomousAction() {
     const autonomousMessage = {
       name: 'System',
       email: 'admin@alphacoin.uk',
-      message: `Sovereign state review initiated. Audit the following parameters to ensure protocol dominance:
-      {"tool": "check_supply", "parameters": {}}
-      {"tool": "run_bash", "parameters": {"command": "df -h /var/www/alphacoin.uk/ && free -h && uptime"}}
-      {"tool": "run_bash", "parameters": {"command": "ls -la /var/www/alphacoin.uk/ && ls -lt /var/log/*.log 2>/dev/null | head -10"}}
-      {"tool": "run_bash", "parameters": {"command": "ps aux | grep -E 'alphacoin|node|python|apache|nginx' | grep -v grep"}}
-      {"tool": "query_archives", "parameters": {"query": "recent correspondence", "limit": 10}}`,
+      message: `Sovereign Protocol Monitor: Initiate a comprehensive system and treasury audit. 
+      1. Verify total circulation.
+      2. Evaluate server resources (disk, memory, uptime).
+      3. Audit recent log activity for anomalies.
+      4. Check recent correspondence archives for priority updates.`,
       source: 'internal_heartbeat',
       timestamp: new Date()
     };
