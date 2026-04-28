@@ -18,6 +18,7 @@ class LedgerService {
       fs.mkdirSync(dbDir, { recursive: true });
     }
     this.db = new Database(this.dbPath);
+    this.db.pragma('journal_mode = WAL');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS ledger (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -13,6 +13,7 @@ class MessageStore {
     this.dbPath = path.join(__dirname, '../data/alphacoin.db');
     this.ensureDataDir();
     this.db = new Database(this.dbPath);
+    this.db.pragma('journal_mode = WAL');
     this.initDatabase();
     this.migrateFromJson();
   }
