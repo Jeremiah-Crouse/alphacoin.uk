@@ -106,12 +106,14 @@ class MessageStore {
   }
 
   /**
-   * Find a message by its Gmail thread ID (for linking replies)
+   * Find a message by any relevant email identifier (Thread ID or Message-ID)
    */
-  async findMessageByEmailThreadId(threadId) {
-    // Find a message where any conversation entry has this threadId
+  async findMessageByEmailIdentifier(identifier) {
+    if (!identifier) return null;
     return this.messages.find(msg => 
-      msg.conversation && msg.conversation.some(entry => entry.emailThreadId === threadId)
+      msg.conversation && msg.conversation.some(entry => 
+        entry.emailThreadId === identifier || entry.emailMessageId === identifier
+      )
     );
   }
 
@@ -138,7 +140,7 @@ class MessageStore {
   /**
    * Add a new entry (user message or admin response) to a message's conversation history
    */
-  async addConversationEntry(id, role, content, renderedHtml = null, sentEmailHtml = null, emailMessageId = null, emailThreadId = null) {
+  async addConversationEntry(id, role, content, renderedHtml = null, sentEmailHtml = null, emailMessageId = null, emailThreadId = null, isHidden = false) {
     const message = await this.getMessage(id);
     
     if (!message) {
@@ -153,12 +155,13 @@ class MessageStore {
       timestamp: new Date(),
       emailMessageId: emailMessageId, // Gmail message ID if from email
       emailThreadId: emailThreadId, // Gmail thread ID if from email
+      hidden: isHidden
     };
 
     message.conversation.push(newEntry);
 
     // Update top-level adminResponse/adminResponseTime for convenience/backward compatibility
-    if (role === 'admin') {
+    if (role === 'admin') { // Only update these if it's a final admin text response
       message.adminResponse = content;
       message.adminResponseHtml = renderedHtml;
       message.adminResponseTime = newEntry.timestamp;

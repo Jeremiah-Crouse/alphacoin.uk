@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const AdminService = require('./services/AdminService');
 const EmailService = require('./services/EmailService');
+const LedgerService = require('./services/LedgerService'); // Import LedgerService
 const MessageStore = require('./services/MessageStore');
 
 const app = express();
@@ -17,9 +18,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize services
-const adminService = new AdminService();
+const messageStore = new MessageStore(); // Initialize MessageStore first
+const ledgerService = new LedgerService(); // Initialize LedgerService
+const adminService = new AdminService({ messageStore, ledgerService }); // Pass services to AdminService
 const emailService = new EmailService();
-const messageStore = new MessageStore();
 
 // Polling interval for Gmail (e.g., every 5 minutes)
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
@@ -110,17 +112,7 @@ app.post('/api/messages', async (req, res) => {
 
     console.log(`\n[System] Generating Big Pickle response for new message ${storedMessage.id}...`);
     
-    // Generate response using Big Pickle
-    const generatedResponse = await adminService.generateResponse(storedMessage);
-
-    console.log(`[System] Response generated:\n${generatedResponse}\n`);
-    
-    // Send response email and get the HTML
-    const sentHtml = await emailService.sendAdminResponse(storedMessage.email, storedMessage.name, generatedResponse);
-    const responseHtml = emailService.markdownToHtml(generatedResponse);
-    
-    // Add the AI's response to the conversation
-    const updatedMessage = await messageStore.addConversationEntry(storedMessage.id, 'admin', generatedResponse, responseHtml, sentHtml);
+    const updatedMessage = await processAdminResponse(storedMessage);
 
     console.log(`[System] Initial AI response sent to ${updatedMessage.email}\n`);
     res.json({ success: true, messageId: updatedMessage.id, adminResponse: updatedMessage.adminResponse, adminResponseHtml: updatedMessage.adminResponseHtml });
@@ -138,7 +130,13 @@ app.get('/api/messages', async (req, res) => {
       limit ? parseInt(limit) : null,
       before ? before : null
     );
-    res.json(messages);
+    
+    // Filter out hidden conversation entries for the public feed
+    const publicMessages = messages.map(msg => ({
+      ...msg,
+      conversation: msg.conversation.filter(entry => !entry.hidden)
+    }));
+    res.json(publicMessages);
   } catch (error) {
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
@@ -186,17 +184,7 @@ app.post('/api/messages/:id/generate-response', async (req, res) => {
 
     console.log(`\n[System] Generating Big Pickle response for message ${id}...`);
     
-    // Generate response using Big Pickle
-    const generatedResponse = await adminService.generateResponse(message);
-
-    console.log(`[System] Response generated:\n${generatedResponse}\n`);
-    
-    // Send response email and get the HTML
-    const sentHtml = await emailService.sendAdminResponse(message.email, message.name, generatedResponse);
-    const responseHtml = emailService.markdownToHtml(generatedResponse);
-    
-    // Add the AI's response to the conversation
-    const updatedMessage = await messageStore.addConversationEntry(id, 'admin', generatedResponse, responseHtml, sentHtml);
+    const updatedMessage = await processAdminResponse(message);
 
     console.log(`[System] Response sent to ${updatedMessage.email}\n`);
 
@@ -222,11 +210,7 @@ app.post('/api/messages/generate-all-responses', async (req, res) => {
     const results = [];
     for (const msg of pendingMessages) {
       try {
-        const generatedResponse = await adminService.generateResponse(msg);
-        const sentHtml = await emailService.sendAdminResponse(msg.email, msg.name, generatedResponse);
-        const responseHtml = emailService.markdownToHtml(generatedResponse); // Render for feed
-        const updatedMessage = await messageStore.addConversationEntry(msg.id, 'admin', generatedResponse, responseHtml, sentHtml);
-        results.push({ id: msg.id, success: true });
+        const updatedMessage = await processAdminResponse(msg);
         console.log(`✓ Response sent to ${updatedMessage.email}`);
       } catch (error) {
         console.error(`✗ Failed to respond to message ${msg.id}:`, error.message);
@@ -247,6 +231,88 @@ app.post('/api/messages/generate-all-responses', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
+
+/**
+ * Orchestrates the Admin's response, including tool calls.
+ * This is the core "reasoning loop" for the agent.
+ * @param {object} message The message object from MessageStore, including conversation history.
+ * @returns {object} The updated message object after Admin's final response.
+ */
+async function processAdminResponse(message) {
+  let currentMessage = message;
+  let adminResponseContent = '';
+  let isToolCall = true;
+  let toolOutput = '';
+
+  // Loop until the Admin provides a non-tool-call response
+  while (isToolCall) {
+    console.log(`[Admin Agent] Generating next step for message ID ${currentMessage.id}...`);
+    const rawResponse = await adminService.generateResponse(currentMessage);
+
+    // Look for a JSON block within the response (allows AI to talk and act)
+    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/); // Greedy match for outer braces
+
+    try {
+      if (jsonMatch) {
+        const parsedResponse = JSON.parse(jsonMatch[0].trim());
+        if (parsedResponse.tool) { // If there's a tool, we process it
+          console.log(`[Admin Agent] Tool call detected: ${parsedResponse.tool}`);
+          
+          // 1. RECORD THE AI'S THOUGHT: Add the tool call itself to the history. 
+          // This maintains context and ensures role alternation (User -> Assistant -> User).
+          const toolCallNotice = emailService.markdownToHtml(`*Big Pickle is using the ${parsedResponse.tool} tool...*`);
+          currentMessage = await messageStore.addConversationEntry(
+            currentMessage.id,
+            'admin',
+            rawResponse,
+            toolCallNotice,
+            null, // sentEmailHtml
+            null, // emailMessageId
+            null, // emailThreadId
+            true  // isHidden
+          );
+
+          // 2. EXECUTE THE TOOL
+          toolOutput = await adminService.executeTool(parsedResponse.tool, parsedResponse.parameters || {});
+          console.log(`[Admin Agent] Tool output received (${toolOutput.length} chars)`);
+
+          // 3. RECORD THE RESULT: Add tool output to history so the AI can see it.
+          // We use the 'admin' role for UI attribution, but tag the content for the LLM.
+          currentMessage = await messageStore.addConversationEntry(
+            currentMessage.id,
+            'admin',
+            `[INTERNAL_RESULT] ${toolOutput}`,
+            emailService.markdownToHtml(`*System Result: ${toolOutput}*`),
+            null, // sentEmailHtml
+            null, // emailMessageId
+            null, // emailThreadId
+            true  // isHidden
+          );
+          
+          continue; // Restart loop so AI can process the tool output
+        }
+      }
+
+      // If we got here, no tool was executed in this turn. End loop.
+      isToolCall = false;
+      adminResponseContent = rawResponse;
+      
+    } catch (e) {
+      console.warn(`[Admin Agent] Failed to parse or execute tool: ${e.message}. Treating as text response.`);
+      isToolCall = false;
+      adminResponseContent = rawResponse;
+    }
+  }
+
+  console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
+
+  // Send response email and get the HTML
+  const sentHtml = await emailService.sendAdminResponse(currentMessage.email, currentMessage.name, adminResponseContent);
+  const responseHtml = emailService.markdownToHtml(adminResponseContent);
+  
+  // Add the AI's final text response to the conversation
+  return await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
+}
 
 // Function to poll incoming emails
 async function pollIncomingEmails() {
@@ -269,11 +335,15 @@ async function pollIncomingEmails() {
       let linkedMessage = null;
 
       if (isReply) {
-        // Try to link by In-Reply-To header first (most reliable)
-        if (email.inReplyTo) {
-          linkedMessage = await messageStore.findMessageByEmailThreadId(email.inReplyTo);
+        // 1. Try to link by Gmail's threadId (most reliable for Gmail users)
+        if (email.threadId) {
+          linkedMessage = await messageStore.findMessageByEmailIdentifier(email.threadId);
         }
-        // Fallback: try to link by subject and sender email
+        // 2. Try to link by In-Reply-To header (standard email threading)
+        if (!linkedMessage && email.inReplyTo) {
+          linkedMessage = await messageStore.findMessageByEmailIdentifier(email.inReplyTo);
+        }
+        // 3. Fallback: try to link by subject and sender email
         if (!linkedMessage) {
           linkedMessage = await messageStore.findMessageBySubjectAndSender(email.subject.replace(replySubjectRegex, '').trim(), email.from.email);
         }
@@ -284,14 +354,7 @@ async function pollIncomingEmails() {
         console.log(`[Polling] Found reply for message ID ${linkedMessage.id} from ${email.from.email}`);
         await messageStore.addConversationEntry(linkedMessage.id, 'user', email.body, email.body, null, email.id, email.threadId);
         
-        // Trigger AI response for the reply
-        const generatedResponse = await adminService.generateResponse(linkedMessage); // Pass the whole message for context
-        
-        // Mimic a "Reply" by using the original subject and adding the threading headers
-        const replySubject = email.subject.toLowerCase().startsWith('re:') ? email.subject : `Re: ${email.subject}`;
-        const sentHtml = await emailService.sendAdminResponse(email.from.email, email.from.name, generatedResponse, email.messageId, replySubject);
-        const responseHtml = emailService.markdownToHtml(generatedResponse);
-        await messageStore.addConversationEntry(linkedMessage.id, 'admin', generatedResponse, responseHtml, sentHtml);
+        await processAdminResponse(linkedMessage); // Process the reply with the agentic loop
 
         console.log(`[Polling] AI responded to email reply from ${email.from.email}`);
       } else {
@@ -301,18 +364,15 @@ async function pollIncomingEmails() {
           name: email.from.name,
           email: email.from.email,
           message: email.body,
+          subject: email.subject, // Store subject for better heuristic matching later
           source: 'email_inbox',
           timestamp: email.date,
-          emailMessageId: email.id, // Store Gmail's message ID
-          emailThreadId: email.threadId, // Store Gmail's thread ID
+          emailMessageId: email.messageId, // Store standard Message-ID header
+          emailThreadId: email.threadId,   // Store Gmail's thread ID
         };
         const storedMessage = await messageStore.addMessage(newMessage);
 
-        // Trigger AI response for the new email
-        const generatedResponse = await adminService.generateResponse(storedMessage);
-        const sentHtml = await emailService.sendAdminResponse(storedMessage.email, storedMessage.name, generatedResponse, email.messageId);
-        const responseHtml = emailService.markdownToHtml(generatedResponse);
-        await messageStore.addConversationEntry(storedMessage.id, 'admin', generatedResponse, responseHtml, sentHtml);
+        await processAdminResponse(storedMessage); // Process the new email with the agentic loop
 
         console.log(`[Polling] AI responded to new email from ${email.from.email}`);
       }
