@@ -64,15 +64,17 @@ class MessageStore {
       console.log('[MessageStore] Migrating legacy JSON data to SQLite...');
       const legacyData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
       for (const msg of legacyData) {
+        const msgTimestamp = (msg.timestamp instanceof Date) ? msg.timestamp.toISOString() : msg.timestamp;
         this.db.prepare(`INSERT INTO messages (id, name, email, message, source, timestamp, adminResponse, adminResponseTime) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-          msg.id, msg.name, msg.email, msg.message, msg.source, msg.timestamp, msg.adminResponse, msg.adminResponseTime
+          msg.id, msg.name, msg.email, msg.message, msg.source, msgTimestamp, msg.adminResponse, msg.adminResponseTime
         );
         if (msg.conversation) {
           for (const entry of msg.conversation) {
+            const entryTimestamp = (entry.timestamp instanceof Date) ? entry.timestamp.toISOString() : entry.timestamp;
             this.db.prepare(`INSERT INTO conversation_entries (message_id, role, content, html, sentEmailHtml, timestamp, emailMessageId, emailThreadId, hidden) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-              msg.id, entry.role, entry.content, entry.html, entry.sentEmailHtml, entry.timestamp, entry.emailMessageId, entry.emailThreadId, entry.hidden ? 1 : 0
+              msg.id, entry.role, entry.content, entry.html, entry.sentEmailHtml, entryTimestamp, entry.emailMessageId, entry.emailThreadId, entry.hidden ? 1 : 0
             );
           }
         }
@@ -83,7 +85,10 @@ class MessageStore {
 
   async addMessage(messageData) {
     const id = crypto.randomBytes(8).toString('hex');
-    const timestamp = messageData.timestamp || new Date().toISOString();
+    // Ensure timestamp is always an ISO string
+    const timestamp = (messageData.timestamp instanceof Date) 
+      ? messageData.timestamp.toISOString() 
+      : (messageData.timestamp || new Date().toISOString());
     
     const insertMsg = this.db.prepare(`INSERT INTO messages (id, name, email, message, subject, source, timestamp, emailMessageId, emailThreadId) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
