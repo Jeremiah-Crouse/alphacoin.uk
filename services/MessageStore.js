@@ -56,6 +56,21 @@ class MessageStore {
         FOREIGN KEY(message_id) REFERENCES messages(id)
       );
     `);
+
+    // Migration: Ensure all required columns exist for those updating from older versions
+    const tableInfo = this.db.prepare("PRAGMA table_info(messages)").all();
+    const columns = tableInfo.map(c => c.name);
+    const requiredColumns = [
+      { name: 'subject', type: 'TEXT' },
+      { name: 'emailMessageId', type: 'TEXT' },
+      { name: 'emailThreadId', type: 'TEXT' },
+      { name: 'requestFollowUp', type: 'INTEGER DEFAULT 1' }
+    ];
+    requiredColumns.forEach(col => {
+      if (!columns.includes(col.name)) {
+        this.db.exec(`ALTER TABLE messages ADD COLUMN ${col.name} ${col.type}`);
+      }
+    });
   }
 
   migrateFromJson() {
