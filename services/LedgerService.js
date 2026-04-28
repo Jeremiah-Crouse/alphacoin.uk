@@ -65,6 +65,11 @@ class LedgerService {
     const result = this.db.prepare('SELECT SUM(amount) as total FROM ledger').get();
     return result.total || 0;
   }
+
+  async getUserBalance(email) {
+    const result = this.db.prepare('SELECT SUM(amount) as total FROM ledger WHERE userEmail = ?').get(email);
+    return result.total || 0;
+  }
 }
 
 module.exports = LedgerService;

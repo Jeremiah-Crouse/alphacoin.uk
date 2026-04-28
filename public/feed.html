@@ -239,7 +239,8 @@
 
   <div class="nav-bar">
     <a href="/">Home</a>
-    <a href="/feed.html">Ledger</a>
+    <a href="/feed.html" class="active">Ledger</a>
+    <a href="/about.html">Strategy</a>
     <a href="/contact.html">Contact</a>
   </div>
 
@@ -262,7 +263,7 @@
     <a href="/">← Home</a>
     <a href="/contact.html">Send Message →</a>
     <br>
-    <button class="refresh-btn" onclick="refreshNew()">Refresh Feed</button>
+    <button class="refresh-btn" onclick="location.reload()">Refresh Feed</button>
   </div>
 
   <script>
@@ -429,9 +430,17 @@
     }
 
     async function checkBalance() {
-      const email = document.getElementById('checkEmail').value;
-      // Placeholder for future logic
-      document.getElementById('balanceResult').textContent = "Verification pending protocol update.";
+      const email = document.getElementById('checkEmail').value.trim();
+      if (!email) return;
+      document.getElementById('balanceResult').textContent = "Querying ledger...";
+      try {
+        const response = await fetch(`/api/balance/${encodeURIComponent(email)}`);
+        const data = await response.json();
+        document.getElementById('balanceResult').innerHTML = 
+          `Balance for <strong>${escapeHtml(data.email)}</strong>: <span style="font-weight:bold; color:#0066cc;">${data.balance} Alphacoins</span>`;
+      } catch (e) {
+        document.getElementById('balanceResult').textContent = "Error accessing ledger.";
+      }
     }
 
     // Lazy loading scroll trigger

@@ -45,6 +45,10 @@ app.get('/feed.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'feed.html'));
 });
 
+app.get('/about.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'about.html'));
+});
+
 // API: Initiate Gmail OAuth flow
 app.get('/api/gmail/auth', (req, res) => {
   try {
@@ -54,6 +58,20 @@ app.get('/api/gmail/auth', (req, res) => {
     console.error('Error generating Gmail auth URL:', error);
     res.status(500).send('Failed to initiate Gmail authentication. Check server logs.');
   }
+});
+
+app.get('/api/balance/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const balance = await ledgerService.getUserBalance(email);
+    res.json({ email, balance });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch balance' });
+  }
+});
+
+app.get('/api/strategy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'About.md'));
 });
 
 // API: Gmail OAuth callback
@@ -338,20 +356,34 @@ async function processAdminResponse(message) {
 
   // Send response email and get the HTML
   let sentHtml = null;
-  if (message.source !== 'internal_heartbeat' && message.requestFollowUp !== 0) {
+  const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com'];
+  const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
+  const isHeartbeat = message.source === 'internal_heartbeat';
+
+  if (isHeartbeat || isSovereign || message.requestFollowUp !== 0) {
+    const targetEmail = isHeartbeat ? 'jeremiahjcrouse@gmail.com' : currentMessage.email;
+    const targetName = isHeartbeat ? 'King Jeremiah' : currentMessage.name;
+
+    let finalEmailContent = adminResponseContent;
+
+    // Redirect non-sovereign users to the public feed via boilerplate
+    if (!isSovereign && !isHeartbeat) {
+      finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
+    }
+
     // Find the latest user message to quote in the email reply
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
       .slice(-1)[0];
 
     sentHtml = await emailService.sendAdminResponse(
-      currentMessage.email, 
-      currentMessage.name, 
-      adminResponseContent,
+      targetEmail, 
+      targetName, 
+      finalEmailContent,
       currentMessage.emailMessageId,
       currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
       { 
-        name: currentMessage.name, email: currentMessage.email, 
+        name: targetName, email: targetEmail, 
         text: latestUserEntry ? latestUserEntry.content : currentMessage.message, 
         timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
       }
