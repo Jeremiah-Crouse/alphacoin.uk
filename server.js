@@ -298,7 +298,7 @@ app.post('/api/users/register', async (req, res) => {
     const user = await userStore.createUser(email, password, name);
     
     // Send verification email
-    const verifyUrl = `${req.protocol}://${req.get('host')}/api/users/verify?token=${user.verificationToken}`;
+    const verifyUrl = `https://alphacoin.uk/api/users/verify?token=${user.verificationToken}`;
     await emailService.sendVerificationEmail(email, user.name, verifyUrl);
     
     res.json({ 
