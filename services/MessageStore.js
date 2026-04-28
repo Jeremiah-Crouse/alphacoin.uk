@@ -100,16 +100,30 @@ class MessageStore {
     return this.getMessage(id);
   }
 
-  async getAllMessages(limit = null, before = null) {
+  async getAllMessages(limit = null, before = null, after = null) {
     let query = 'SELECT * FROM messages';
     let params = [];
+    let clauses = [];
 
     if (before) {
-      query += ' WHERE timestamp < ?';
+      clauses.push('timestamp < ?');
       params.push(before);
     }
+    if (after) {
+      clauses.push('timestamp > ?');
+      params.push(after);
+    }
 
-    query += ' ORDER BY timestamp ASC';
+    if (clauses.length > 0) {
+      query += ' WHERE ' + clauses.join(' AND ');
+    }
+
+    // If fetching new updates, go ASC. If fetching history/initial, go DESC to get latest.
+    if (after) {
+      query += ' ORDER BY timestamp ASC';
+    } else {
+      query += ' ORDER BY timestamp DESC';
+    }
 
     if (limit) {
       query += ' LIMIT ?';
@@ -117,6 +131,10 @@ class MessageStore {
     }
 
     const messages = this.db.prepare(query).all(...params);
+    
+    // If we fetched DESC to get the most recent, reverse them for chronological UI display
+    if (!after) messages.reverse();
+
     for (const msg of messages) {
       msg.conversation = this.getConversationEntries(msg.id);
     }

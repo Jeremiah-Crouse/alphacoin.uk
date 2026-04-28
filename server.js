@@ -128,10 +128,11 @@ app.post('/api/messages', async (req, res) => {
 // API: Get all messages and responses (for feed.html)
 app.get('/api/messages', async (req, res) => {
   try {
-    const { limit, before } = req.query;
+    const { limit, before, after } = req.query;
     const messages = await messageStore.getAllMessages(
       limit ? parseInt(limit) : null,
-      before ? before : null
+      before ? before : null,
+      after ? after : null
     );
     
     // Filter out hidden conversation entries for the public feed
@@ -160,7 +161,17 @@ app.post('/api/messages/:id/response', async (req, res) => {
     if (!existingMessage) return res.status(404).json({ error: 'Message not found' });
 
     // Send response email to original sender
-    const sentHtml = await emailService.sendAdminResponse(existingMessage.email, existingMessage.name, response);
+    const sentHtml = await emailService.sendAdminResponse(
+      existingMessage.email, 
+      existingMessage.name, 
+      response,
+      existingMessage.emailMessageId,
+      existingMessage.subject ? `Re: ${existingMessage.subject.replace(/^Re:\s+/i, '')}` : null,
+      { 
+        name: existingMessage.name, email: existingMessage.email, 
+        text: existingMessage.message, timestamp: existingMessage.timestamp 
+      }
+    );
     const responseHtml = emailService.markdownToHtml(response);
     const updatedMessage = await messageStore.addConversationEntry(id, 'admin', response, responseHtml, sentHtml);
 
@@ -325,7 +336,17 @@ async function processAdminResponse(message) {
   // Send response email and get the HTML
   let sentHtml = null;
   if (message.source !== 'internal_heartbeat') {
-    sentHtml = await emailService.sendAdminResponse(currentMessage.email, currentMessage.name, adminResponseContent);
+    sentHtml = await emailService.sendAdminResponse(
+      currentMessage.email, 
+      currentMessage.name, 
+      adminResponseContent,
+      currentMessage.emailMessageId,
+      currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
+      { 
+        name: currentMessage.name, email: currentMessage.email, 
+        text: currentMessage.message, timestamp: currentMessage.timestamp 
+      }
+    );
   }
 
   const responseHtml = emailService.markdownToHtml(adminResponseContent);

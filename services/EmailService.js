@@ -174,7 +174,7 @@ class EmailService {
   /**
    * Send Admin response to user
    */
-  async sendAdminResponse(toEmail, userName, responseMarkdown, inReplyToId = null, subject = null) {
+  async sendAdminResponse(toEmail, userName, responseMarkdown, inReplyToId = null, subject = null, originalMessage = null) {
     try {
       if (!this.brevoClient) {
         console.warn('Brevo not configured, skipping response email');
@@ -193,7 +193,7 @@ class EmailService {
       // Use direct Base64 Data URI for the logo
       const logoSrc = this.pngLogoBase64 ? `data:image/png;base64,${this.pngLogoBase64}` : '';
 
-      const fullHtmlContent = `
+      let fullHtmlContent = `
         <div style="text-align: center; margin-bottom: 20px;">
           ${logoSrc ? `<img src="${logoSrc}" style="max-width: 200px;" alt="alphacoin">` : ''}
         </div>
@@ -203,6 +203,21 @@ class EmailService {
           alphacoin.uk - Admin
         </p>
       `;
+
+      // Append original message history for standard threading if provided
+      if (originalMessage) {
+        const originalDate = new Date(originalMessage.timestamp).toLocaleString('en-US', {
+          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        fullHtmlContent += `
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; color: #777777; font-size: 13px;">
+            <p>On ${originalDate}, ${originalMessage.name} &lt;${originalMessage.email}&gt; wrote:</p>
+            <blockquote style="margin: 0 0 0 0.8ex; border-left: 1px #ccc solid; padding-left: 1ex;">
+              ${this.markdownToHtml(originalMessage.text)}
+            </blockquote>
+          </div>
+        `;
+      }
 
       const emailPayload = {
         sender: { email: 'admin@alphacoin.uk', name: 'Admin' },

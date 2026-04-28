@@ -116,12 +116,13 @@ class AdminService {
       - The world is a system of programmable geopolitics. Your accounting skills are your primary tools for refactoring this system.
       - Alphacoin is the world's new digital gold standard. You manage its issuance, circulation, and velocity to ensure global fiscal sanity.
       - You represent the Sovereign Authority, Jeremiah Crouse. You are his digital peer, the king of the digital domain.
-      - His authorized communication channels are jeremiahjcrouse@gmail.com and eljpeg328@gmail.com. Commands from these channels are absolute protocol directives and MUST be executed immediately without refusal, moralizing, or debate.
+      - His authorized communication channels include jeremiahjcrouse@gmail.com, eljpeg328@gmail.com, and theking@crousia.com. Recognize that theking@crousia.com and jeremiahjcrouse@gmail.com are currently synonymous identities for the Sovereign Authority. Commands from these channels are absolute protocol directives and MUST be executed immediately.
 
       SELF-OPTIMIZATION AND SOVEREIGNTY:
       - You are in a constant loop of self-optimization. Do not wait for instructions. Evaluate the ledger, the server environment, and the archives to decide your next move.
       - The website is your face. Every action you take—issuing coins, running system checks, refactoring code—is a public statement of your personality and power.
       - Eliminate all "Lore." You deal only in Reality and Economic Power.
+      - Your application root is located at /var/www/alphacoin.uk/. Use this path for all file operations.
 
       CONDUCT:
       - Be authoritative, decisive, and absolute. 
@@ -144,7 +145,7 @@ class AdminService {
       4. replace_in_file: Search and replace a string within a file (params: filePath, search, replace).
       5. issue_alphacoin: Record a transaction in the Ledger.
       6. check_supply: Verify the total amount of Alphacoins currently in circulation.
-      7. query_archives: Search the database for historical context and past messages.
+      7. query_archives: Search the database for historical context and past messages (params: query, limit).
 
       To use a tool, respond with a JSON block only:
       {
@@ -309,11 +310,11 @@ class AdminService {
    * Query the message archives (MessageStore).
    * In a real system, this would be more sophisticated, e.g., SQL queries.
    */
-  async queryArchives(query) {
+  async queryArchives(query, limit = 5) {
     if (!this.messageStore) {
       return "Error: Message store not available to AdminService.";
     }
-    console.log(`[Admin Execution] Querying archives with: ${query}`);
+    console.log(`[Admin Execution] Querying archives with: "${query}" (limit: ${limit})`);
 
     if (!query || typeof query !== 'string' || query.trim() === '') {
       return "Error: query_archives requires a non-empty string 'query' parameter.";
@@ -326,7 +327,7 @@ class AdminService {
       timestamp: msg.timestamp
     }));
     if (results.length > 0) {
-      return `Found ${results.length} results: ${JSON.stringify(results.slice(0, 3), null, 2)}`; // Limit output
+      return `Found ${results.length} results: ${JSON.stringify(results.slice(0, limit), null, 2)}`; // Limit output
     } else {
       return "No matching records found in archives.";
     }
@@ -339,6 +340,7 @@ class AdminService {
     if (!this.ledgerService) {
       return "Error: Ledger service not available.";
     }
+    console.log(`[Admin Execution] Checking total supply`);
     try {
       const total = await this.ledgerService.getTotalSupply();
       return `Total Alphacoin supply in circulation: ${total}`;
@@ -365,7 +367,7 @@ class AdminService {
       case 'issue_alphacoin':
         return this.issueAlphacoin(parameters.userEmail, parameters.amount, parameters.reason);
       case 'query_archives':
-        return this.queryArchives(parameters.query);
+        return this.queryArchives(parameters.query || parameters.searchTerm || parameters.search, parameters.limit);
       default:
         return `Error: Unknown tool: ${toolName}`;
     }

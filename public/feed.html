@@ -210,7 +210,7 @@
 
   <div class="container">
     <div class="load-more-container">
-      <button id="loadMoreBtn" class="refresh-btn" style="background: #888; display: none;" onclick="loadOlder()">Load Older Lore...</button>
+      <div id="loadMoreSentinel" style="height: 20px; margin-bottom: 20px; color: #999; font-size: 12px; display: none; text-align: center;">Retrieving older records...</div>
     </div>
     <div id="feed" class="feed">
       <div class="loading">Loading messages...</div>
@@ -226,119 +226,122 @@
 
   <script>
     let oldestTimestamp = null;
-    let isInitialLoad = true;
+    let newestTimestamp = null;
+    let loadingOlder = false;
     const feedDiv = document.getElementById('feed');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const sentinel = document.getElementById('loadMoreSentinel');
 
-    async function loadMessages(isRefresh = false) {
-      const wasAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 100;
-      
-      try {
-        // If it's the first load, grab a limited set
-        const url = isInitialLoad ? '/api/messages?limit=20' : '/api/messages';
-        const response = await fetch(url);
-        const messages = await response.json();
+    // Helper to render message groups
+    function createMessageGroup(msg) {
+      const messageGroup = document.createElement('div');
+      messageGroup.className = 'message-group';
+      messageGroup.dataset.timestamp = msg.timestamp;
 
-        if (!Array.isArray(messages) || messages.length === 0) {
-          if (isInitialLoad) {
-            feedDiv.innerHTML = '<div class="empty-state"><p>No correspondence found in the Crousian archives.</p></div>';
+      if (msg.conversation && Array.isArray(msg.conversation)) {
+        msg.conversation.forEach(entry => {
+          const entryDiv = document.createElement('div');
+          entryDiv.className = `chat-entry role-${entry.role}`;
+          
+          const header = document.createElement('div');
+          header.className = 'entry-header';
+          const name = entry.role === 'admin' ? 'Admin' : msg.name;
+          header.innerHTML = `
+            <span class="entry-name">${escapeHtml(name)}</span>
+            <span>${formatTime(entry.timestamp)}</span>
+          `;
+
+          const content = document.createElement('div');
+          content.className = 'content-body';
+          if (entry.html) {
+            content.innerHTML = entry.html;
+          } else {
+            content.textContent = entry.content;
           }
+
+          if (entry.role === 'admin') {
+            const badge = document.createElement('div');
+            badge.className = 'admin-badge';
+            badge.textContent = 'RESPONSE';
+            entryDiv.appendChild(badge);
+          }
+
+          entryDiv.appendChild(header);
+          entryDiv.appendChild(content);
+          messageGroup.appendChild(entryDiv);
+        });
+      }
+      return messageGroup;
+    }
+
+    async function loadInitial() {
+      try {
+        const response = await fetch('/api/messages?limit=20');
+        const messages = await response.json();
+        feedDiv.innerHTML = '';
+
+        if (messages.length === 0) {
+          feedDiv.innerHTML = '<div class="empty-state"><p>No correspondence found in the archives.</p></div>';
           return;
         }
 
-        if (messages.length > 0) {
-          oldestTimestamp = messages[0].timestamp;
-          loadMoreBtn.style.display = 'inline-block';
-        }
-
-        feedDiv.innerHTML = '';
+        messages.forEach(msg => feedDiv.appendChild(createMessageGroup(msg)));
         
-        messages.forEach(msg => {
-          const messageGroup = document.createElement('div');
-          messageGroup.className = 'message-group';
-
-          // Handle the new conversation array schema
-          if (msg.conversation && Array.isArray(msg.conversation)) {
-            msg.conversation.forEach(entry => {
-              const entryDiv = document.createElement('div');
-              entryDiv.className = `chat-entry role-${entry.role}`;
-              
-              const header = document.createElement('div');
-              header.className = 'entry-header';
-              const name = entry.role === 'admin' ? 'Admin' : msg.name;
-              header.innerHTML = `
-                <span class="entry-name">${escapeHtml(name)}</span>
-                <span>${formatTime(entry.timestamp)}</span>
-              `;
-
-              const content = document.createElement('div');
-              content.className = 'content-body';
-              // Use HTML if provided (for Admin responses), otherwise text
-              if (entry.html) {
-                content.innerHTML = entry.html;
-              } else {
-                content.textContent = entry.content;
-              }
-
-              if (entry.role === 'admin') {
-                const badge = document.createElement('div');
-                badge.className = 'admin-badge';
-                badge.textContent = 'RESPONSE';
-                entryDiv.appendChild(badge);
-              }
-
-              entryDiv.appendChild(header);
-              entryDiv.appendChild(content);
-              messageGroup.appendChild(entryDiv);
-            });
-          }
-
-          feedDiv.appendChild(messageGroup);
-        });
-
-        if (isInitialLoad) {
-          window.scrollTo(0, document.body.scrollHeight);
-          isInitialLoad = false;
-        } else if (wasAtBottom && isRefresh) {
-          window.scrollTo(0, document.body.scrollHeight);
-        }
-
+        oldestTimestamp = messages[0].timestamp;
+        newestTimestamp = messages[messages.length - 1].timestamp;
+        sentinel.style.display = 'block';
+        
+        window.scrollTo(0, document.body.scrollHeight);
       } catch (error) {
         console.error('Error:', error);
       }
     }
 
     async function loadOlder() {
-      if (!oldestTimestamp) return;
-      
-      const previousHeight = document.body.scrollHeight;
+      if (loadingOlder || !oldestTimestamp) return;
+      loadingOlder = true;
+      sentinel.textContent = "Retrieving older records...";
       
       try {
+        const prevHeight = document.body.scrollHeight;
         const response = await fetch(`/api/messages?limit=20&before=${oldestTimestamp}`);
         const olderMessages = await response.json();
-        
+
         if (olderMessages.length === 0) {
-          loadMoreBtn.textContent = "Beginning of Time Reached";
-          loadMoreBtn.disabled = true;
+          sentinel.textContent = "Beginning of Archive Reached";
+          oldestTimestamp = null;
           return;
         }
 
-        // Note: For a true "prepend" with existing DOM logic, 
-        // we would rebuild the list. For this MVP, we re-run loadMessages 
-        // without the limit to refresh the full view.
-        isInitialLoad = false; 
-        await loadMessages();
-        
-        // Adjust scroll so the user doesn't lose their place
-        const newHeight = document.body.scrollHeight;
-        window.scrollTo(0, newHeight - previousHeight);
-        
-        if (olderMessages.length > 0) {
-          oldestTimestamp = olderMessages[0].timestamp;
-        }
-      } catch (error) {
-        console.error('Error loading older messages:', error);
+        olderMessages.reverse().forEach(msg => {
+          feedDiv.insertBefore(createMessageGroup(msg), feedDiv.firstChild);
+        });
+
+        oldestTimestamp = olderMessages[olderMessages.length - 1].timestamp;
+        window.scrollTo(0, document.body.scrollHeight - prevHeight);
+      } catch (e) {
+        console.error('Error loading history:', e);
+      } finally {
+        loadingOlder = false;
       }
+    }
+
+    async function refreshNew() {
+      if (!newestTimestamp) return;
+      const wasAtBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 100);
+
+      try {
+        const response = await fetch(`/api/messages?after=${newestTimestamp}`);
+        const newMessages = await response.json();
+        
+        newMessages.forEach(msg => {
+          feedDiv.appendChild(createMessageGroup(msg));
+          newestTimestamp = msg.timestamp;
+        });
+
+        if (wasAtBottom && newMessages.length > 0) {
+          window.scrollTo(0, document.body.scrollHeight);
+        }
+      } catch (e) { console.error('Refresh error:', e); }
     }
 
     function formatTime(timestamp) {
@@ -384,11 +387,18 @@
       return div.innerHTML;
     }
 
-    // Load messages on page load
-    loadMessages();
+    // Lazy loading scroll trigger
+    window.addEventListener('scroll', () => {
+      if (window.scrollY < 100) {
+        loadOlder();
+      }
+    });
 
+    // Initial load
+    loadInitial();
+    
     // Auto-refresh every 30 seconds
-    setInterval(loadMessages, 30000);
+    setInterval(refreshNew, 30000);
   </script>
 </body>
 </html>
