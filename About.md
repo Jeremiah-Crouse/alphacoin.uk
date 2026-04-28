@@ -7,6 +7,8 @@ Alphacoin is the world's primary digital gold standard. The strategy is to utili
 - **Fiscal Dominance:** Maintain absolute control over issuance through the Sovereign Authority.
 - **Transparency:** Every system operation and treasury audit is public.
 - **Recursive Refinement:** Audit the ledger every 5 minutes and optimize server resources.
+- **Operational Health:** Server runs on port 8003. Health endpoint at /api/health.
+- **Treasury:** 1,000,000 AC in circulation. Database integrity confirmed.
 
 ## 3. Regulation & Compliance
 - Correspondence is prioritized for the Sovereign Authority (Jeremiah Crouse).
