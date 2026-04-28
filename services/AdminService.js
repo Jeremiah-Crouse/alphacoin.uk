@@ -17,6 +17,7 @@ const execPromise = util.promisify(exec);
 class AdminService {
   constructor(services = {}) {
     this.modelProvider = process.env.ADMIN_MODEL || 'opencode'; // opencode, openai, local, etc.
+    this.activeProvider = this.modelProvider; // Track the currently active model for the toggle system
     this.apiKey = process.env.ADMIN_API_KEY;
     this.model = process.env.ADMIN_MODEL_NAME || 'big-pickle'; // Zen protocol model identifier
     this.ledgerService = services.ledgerService; // Dependency injection for LedgerService
@@ -71,7 +72,7 @@ class AdminService {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    this.geminiModel = process.env.GEMINI_MODEL_NAME || "gemini-flash-latest";
+    this.geminiModel = process.env.GEMINI_MODEL_NAME || "gemini-1.5-flash";
     this.geminiClient = genAI;
     
     console.log(`✓ Backup Admin initialized: Ashley Gemini (${this.geminiModel})`);
@@ -109,19 +110,35 @@ class AdminService {
    * Routes to provider-specific implementation
    */
   async generateResponse(message) {
-    try {
-      if (this.modelProvider === 'opencode') {
-        return await this.generateResponseZen(message);
-      } else if (this.modelProvider === 'openai') {
-        return await this.generateResponseOpenAI(message);
-      } else {
-        return await this.generateResponseGemini(message);
+    let attempts = 0;
+    const maxToggles = 2; // Allow one toggle per request (Big Pickle -> Ashley or vice versa)
+
+    while (attempts < maxToggles) {
+      try {
+        console.log(`[Admin] Using active provider: ${this.activeProvider}`);
+        if (this.activeProvider === 'opencode') {
+          return await this.generateResponseZen(message);
+        } else if (this.activeProvider === 'openai') {
+          return await this.generateResponseOpenAI(message);
+        } else {
+          return await this.generateResponseGemini(message);
+        }
+      } catch (error) {
+        const isRateLimit = error.response?.status === 429 || error.message?.includes('429');
+        
+        if (isRateLimit && this.geminiClient) {
+          attempts++;
+          const oldProvider = this.activeProvider;
+          this.activeProvider = (oldProvider === 'opencode') ? 'gemini' : 'opencode';
+          console.warn(`[Admin] ${oldProvider} rate limited (429). Persistent toggle to ${this.activeProvider} activated.`);
+          continue; // Retry the loop with the new provider
+        }
+        
+        console.error(`[Admin] Critical failure in ${this.activeProvider}:`, error.message);
+        throw error;
       }
-    } catch (error) {
-      console.error(`[Admin] Primary model failure (${error.message}). Awakening Ashley Gemini...`);
-      if (this.geminiClient) return await this.generateResponseGemini(message);
-      throw error;
     }
+    throw new Error('Both models exhausted their capacity.');
   }
 
   /**
@@ -242,8 +259,8 @@ class AdminService {
       return generatedText;
 
     } catch (error) {
-      console.error('Ashley Gemini failure:', error.message);
-      return 'The protocol is currently undergoing a strategic synchronization. Please monitor the ledger.';
+      console.error(`[Admin] Ashley Gemini Error: ${error.message}`);
+      throw error; // Throw so the toggle system can catch it
     }
   }
 
