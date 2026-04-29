@@ -110,33 +110,47 @@ class AdminService {
    * Routes to provider-specific implementation
    */
   async generateResponse(message) {
-    let attempts = 0;
-    const maxToggles = 2; // Allow one toggle per request (Big Pickle -> Ashley or vice versa)
+    let toggleAttempts = 0;
+    const maxToggles = 2;
 
-    while (attempts < maxToggles) {
+    while (toggleAttempts < maxToggles) {
+      let rateLimitRetries = 0;
+      const maxRateLimitRetries = 3;
+
       try {
-        console.log(`[Admin] Using active provider: ${this.activeProvider}`);
-        if (this.activeProvider === 'opencode') {
-          return await this.generateResponseZen(message);
-        } else if (this.activeProvider === 'openai') {
-          return await this.generateResponseOpenAI(message);
-        } else {
-          return await this.generateResponseGemini(message);
+        while (rateLimitRetries <= maxRateLimitRetries) {
+          try {
+            console.log(`[Admin] Using active provider: ${this.activeProvider}`);
+            if (this.activeProvider === 'opencode') {
+              return await this.generateResponseZen(message);
+            } else if (this.activeProvider === 'openai') {
+              return await this.generateResponseOpenAI(message);
+            } else {
+              return await this.generateResponseGemini(message);
+            }
+          } catch (error) {
+            const is429 = (error.response && error.response.status === 429) || (error.status === 429);
+            if (is429 && rateLimitRetries < maxRateLimitRetries) {
+              const waitTime = Math.pow(2, rateLimitRetries) * 5000; // 5s, 10s, 20s...
+              console.warn(`[Admin] 429 Rate Limit hit on ${this.activeProvider}. Retrying in ${waitTime/1000}s...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              rateLimitRetries++;
+              continue;
+            }
+            throw error; // Re-throw if not a 429 or retries exhausted
+          }
         }
       } catch (error) {
-        // Broaden fallback: Try the other provider on ANY error if a backup is available
         const hasBackup = (this.activeProvider === 'opencode' && this.geminiClient) || 
                           (this.activeProvider === 'gemini' && this.client);
         
-        if (hasBackup && attempts < maxToggles - 1) {
-          attempts++;
+        if (hasBackup && toggleAttempts < maxToggles - 1) {
+          toggleAttempts++;
           const oldProvider = this.activeProvider;
           this.activeProvider = (oldProvider === 'opencode') ? 'gemini' : 'opencode';
-          console.warn(`[Admin] ${oldProvider} failed (${error.message}). Attempting fallback to ${this.activeProvider}.`);
-          continue; // Retry the loop with the new provider
+          console.warn(`[Admin] ${oldProvider} persistent failure. Falling back to ${this.activeProvider}.`);
+          continue;
         }
-        
-        console.error(`[Admin] Critical failure in ${this.activeProvider}:`, error.message);
         throw error;
       }
     }

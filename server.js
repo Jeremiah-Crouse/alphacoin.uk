@@ -615,6 +615,10 @@ async function processAdminResponse(message) {
 
   while (isLooping && iterations < MAX_ITERATIONS) {
     iterations++;
+    
+    // Pacing delay: Wait 3 seconds between reasoning turns to respect RPM limits
+    if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 3000));
+
     console.log(`[Admin Agent] Generating next step for message ID ${currentMessage.id}...`);
     const rawResponse = await adminService.generateResponse(currentMessage);
     // Immediately redact any sensitive info from the AI's raw response
