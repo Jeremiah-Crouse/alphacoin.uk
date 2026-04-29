@@ -647,10 +647,12 @@ async function processAdminResponse(message) {
             emailService.markdownToHtml(`*Admin perceives the outcome:* \n\n ${toolOutput}`), null, null, null, false
           );
         } catch (e) {
-          console.warn(`[Admin Agent] Failed to parse specific tool block: ${e.message}`);
+          console.warn(`[Admin Agent] JSON Parse Error at turn ${iterations}: ${e.message}`);
+          console.log(`[Admin Agent] Malformed block content: ${block.substring(0, 100)}...`);
+
           // Feed the error back to the Admin so it can attempt to correct its logic/formatting
           currentMessage = await messageStore.addConversationEntry(
-            currentMessage.id, 'admin', `[INTERNAL_ERROR] JSON Parsing failed: ${e.message}. Please ensure all special characters in strings are properly escaped.`,
+            currentMessage.id, 'user', `[SYSTEM_ALERT] Tool call JSON parsing failed: ${e.message}. Note: Single backslashes (\\) in strings must be double-escaped (\\\\).`,
             emailService.markdownToHtml(`*Admin's thought process stumbled:* I encountered a logic fragmentation (JSON Parse Error: ${e.message}). I am refocusing my intent.`), null, null, null, false
           );
         }
