@@ -1,6 +1,5 @@
 <svg width="120" height="120" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
   <!-- White background with bold black outline -->
-  <rect x="12" y="12" width="576" height="576" fill="white" stroke="black" stroke-width="24"/>
 
   <!-- Alpha path -->
   <g transform="translate(0, 600) scale(0.1, -0.1)">
