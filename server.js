@@ -87,7 +87,7 @@ app.get('/api/balance/:email', async (req, res) => {
 });
 
 app.get('/api/strategy', (req, res) => {
-  res.sendFile(path.join(__dirname, 'About.md'));
+  res.sendFile(path.join(__dirname, 'public', 'strategy.md'));
 });
 
 app.get('/api/system-prompt', (req, res) => {
@@ -353,6 +353,28 @@ app.post('/api/messages/generate-all-responses', async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// API: Reboot the server (Ego Death)
+app.post('/api/admin/reboot', (req, res) => {
+  console.log('[System] Ego Death ritual initiated.');
+  res.json({ success: true, message: 'Initiating Ego Death ritual. Rebirth imminent.' });
+  
+  const { spawn } = require('child_process');
+  const phoenix = spawn('node', ['phoenix.js'], {
+    cwd: __dirname,
+    detached: true,
+    stdio: 'ignore'
+  });
+  phoenix.unref();
+  
+  // Graceful shutdown
+  if (gmailPollingIntervalId) clearInterval(gmailPollingIntervalId);
+  if (telegramPollingIntervalId) clearInterval(telegramPollingIntervalId);
+  
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
 });
 
 // =============================================

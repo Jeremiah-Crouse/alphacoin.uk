@@ -9,9 +9,4 @@
 
   <!-- Vertical line -->
   <line x1="282" y1="168" x2="282" y2="438" stroke="black" stroke-width="18"/>
-
-  <!-- Project name -->
-  <text x="300" y="564" text-anchor="middle" font-size="48" font-family="Times New Roman, Georgia, serif" font-style="italic" fill="black">
-    The Alphacoin Project
-  </text>
 </svg>
