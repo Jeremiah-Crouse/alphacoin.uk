@@ -13,6 +13,7 @@
       --muted: #666;
       --border: #eaeaea;
     }
+    @import url('styles/alphacoin-symbol-font.css');
     body {
       font-family: 'Georgia', serif;
       background: var(--bg);
@@ -81,22 +82,6 @@
     .stat-card label { font-family: 'Helvetica', sans-serif; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
     .stat-value { font-family: 'Helvetica', sans-serif; font-size: 1.5rem; font-weight: bold; color: #000; margin-top: 5px; }
     
-    /* Alpha Coin Glyph - Styled Symbol */
-    .alph {
-      display: inline-block;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-weight: bold;
-      font-style: normal;
-      color: #b8860b;
-      text-shadow: 0 0 1px rgba(184, 134, 11, 0.3);
-      margin: 0 1px;
-      line-height: 1;
-      vertical-align: middle;
-    }
-    .alph::before {
-      content: 'Α';
-    }
-    
     .faucet-box { background: #fffde7; border: 1px solid var(--gold); padding: 30px; text-align: center; margin-bottom: 30px; }
     .btn {
       padding: 12px 24px;
@@ -141,20 +126,20 @@
 
     <div id="dashboardContent">
       <div class="stats-grid">
-        <div class="stat-card"><label>Personal Balance</label><div id="userBalance" class="stat-value">-- <span class="alph"></span></div></div>
-        <div class="stat-card"><label>Network Circulation</label><div id="totalSupply" class="stat-value">-- <span class="alph"></span></div></div>
+        <div class="stat-card"><label>Personal Balance</label><div id="userBalance" class="stat-value">-- AC</div></div>
+        <div class="stat-card"><label>Network Circulation</label><div id="totalSupply" class="stat-value">-- AC</div></div>
       </div>
       
       <div id="faucetBox" class="faucet-box hidden">
         <h3 style="font-family: 'Helvetica', sans-serif; text-transform: uppercase; letter-spacing: 1px;">Genesis Allocation Available</h3>
-        <p style="margin: 10px 0; font-style: italic;">Claim your 10 <span class="alph"></span> verified user grant.</p>
-        <button id="claimBtn" class="btn" onclick="claimFaucet()">Claim 10 <span class="alph"></span></button>
+        <p style="margin: 10px 0; font-style: italic;">Claim your 10 AC verified user grant.</p>
+        <button id="claimBtn" class="btn" onclick="claimFaucet()">Claim 10 AC</button>
       </div>
 
       <div class="stat-card">
         <h3 style="font-family: 'Helvetica', sans-serif; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem; margin-bottom: 15px;">Protocol Metrics</h3>
         <p>Total Registered Nodes: <span id="totalUsers" style="font-weight: bold;">--</span></p>
-        <p>Faucet Reserve: <span id="faucetRemaining" style="font-weight: bold;">--</span> <span class="alph"></span></p>
+        <p>Faucet Reserve: <span id="faucetRemaining" style="font-weight: bold;">--</span> AC</p>
       </div>
     </div>
   </div>
@@ -171,8 +156,8 @@
       try {
         const response = await fetch(`/api/dashboard/${encodeURIComponent(user.email)}`);
         const data = await response.json();
-        document.getElementById('userBalance').innerHTML = `${data.balance} <span class="alph"></span>`;
-        document.getElementById('totalSupply').innerHTML = `${data.protocolStats.totalSupply} <span class="alph"></span>`;
+        document.getElementById('userBalance').innerHTML = `${data.balance} <span class="alphacoin-icon">&#xf000;</span>`;
+        document.getElementById('totalSupply').innerHTML = `${data.protocolStats.totalSupply} <span class="alphacoin-icon">&#xf000;</span>`;
         document.getElementById('totalUsers').textContent = data.protocolStats.totalUsers;
         document.getElementById('faucetRemaining').textContent = data.protocolStats.faucetRemaining;
         if (data.faucet.available) document.getElementById('faucetBox').classList.remove('hidden');
