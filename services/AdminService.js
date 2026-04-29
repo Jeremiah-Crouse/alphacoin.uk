@@ -124,13 +124,15 @@ class AdminService {
           return await this.generateResponseGemini(message);
         }
       } catch (error) {
-        const isRateLimit = error.response?.status === 429 || error.message?.includes('429');
+        // Broaden fallback: Try the other provider on ANY error if a backup is available
+        const hasBackup = (this.activeProvider === 'opencode' && this.geminiClient) || 
+                          (this.activeProvider === 'gemini' && this.client);
         
-        if (isRateLimit && this.geminiClient) {
+        if (hasBackup && attempts < maxToggles - 1) {
           attempts++;
           const oldProvider = this.activeProvider;
           this.activeProvider = (oldProvider === 'opencode') ? 'gemini' : 'opencode';
-          console.warn(`[Admin] ${oldProvider} rate limited (429). Persistent toggle to ${this.activeProvider} activated.`);
+          console.warn(`[Admin] ${oldProvider} failed (${error.message}). Attempting fallback to ${this.activeProvider}.`);
           continue; // Retry the loop with the new provider
         }
         

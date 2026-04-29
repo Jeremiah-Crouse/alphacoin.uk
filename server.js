@@ -625,6 +625,8 @@ async function processAdminResponse(message) {
     // If no closed JSON blocks found but the message starts with a '{', it's likely truncated
     if (jsonBlocks.length === 0 && redactedRawResponse.trim().startsWith('{')) {
       console.warn(`[Admin Agent] Detected truncated tool call from ${adminService.activeProvider}. Attempting to recover or flagging for Sovereign.`);
+      // Force a narrative fallback so we don't send broken JSON to the Sovereign
+      adminResponseContent = "I attempted to execute a system operation, but the logic stream was interrupted. I am stabilizing the connection.";
     }
 
     if (jsonBlocks.length > 0) {
@@ -688,7 +690,7 @@ async function processAdminResponse(message) {
   }
 
   let sentHtml = null;
-  const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com', '@JeremiahCrouse'];
+  const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com', 'admin@alphacoin.uk', '@JeremiahCrouse'];
   const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
   const isHeartbeat = message.source === 'internal_heartbeat';
 
