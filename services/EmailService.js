@@ -13,7 +13,7 @@ const MarkdownIt = require('markdown-it');
 
 class EmailService {
   constructor() {
-    this.md = new MarkdownIt();
+    this.md = new MarkdownIt({ html: true, linkify: true });
     this.brevoApiKey = process.env.BREVO_API_KEY;
     this.initBrevo();
     this.initGmail();

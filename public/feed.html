@@ -155,6 +155,14 @@
   </div>
 
   <script>
+    // HTML escape utility to prevent XSS
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
     let currentOffset = 0;
     const messageLimit = 10; // Number of messages to load per request
     const messageFeed = document.getElementById('messageFeed');
@@ -195,16 +203,16 @@
           if (initialUserEntry) {
             entryDiv.innerHTML += `
               <div class="user-message">
-                <p class="meta"><strong>${msg.name}</strong> (${msg.email}) - ${new Date(initialUserEntry.timestamp).toLocaleString()}</p>
-                <p>${initialUserEntry.content}</p>
+                <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) - ${new Date(initialUserEntry.timestamp).toLocaleString()}</p>
+                <p>${escapeHtml(initialUserEntry.content)}</p>
               </div>
             `;
           } else {
             // For internal messages or those without a clear 'user' role
             entryDiv.innerHTML += `
               <div class="system-message">
-                <p class="meta"><strong>${msg.name}</strong> (${msg.email}) - ${new Date(msg.timestamp).toLocaleString()}</p>
-                <p>${msg.message}</p>
+                <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) - ${new Date(msg.timestamp).toLocaleString()}</p>
+                <p>${escapeHtml(msg.message)}</p>
               </div>
             `;
           }
@@ -214,7 +222,7 @@
             entryDiv.innerHTML += `
               <div class="admin-response">
                 <p class="meta"><strong>Admin</strong> - ${new Date(adminEntry.timestamp).toLocaleString()}</p>
-                ${adminEntry.html || adminEntry.adminResponseHtml || `<p>${adminEntry.content}</p>`}
+                ${adminEntry.html || adminEntry.adminResponseHtml || `<p>${escapeHtml(adminEntry.content)}</p>`}
               </div>
             `;
           });

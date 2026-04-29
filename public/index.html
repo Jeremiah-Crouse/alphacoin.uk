@@ -106,6 +106,22 @@
     }
     .stat-value { font-family: 'Helvetica', sans-serif; font-size: 1.5rem; font-weight: bold; color: #000; }
     .stat-label { font-family: 'Helvetica', sans-serif; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    
+    /* Visual Sovereignty: The Alpha Glyph */
+    .alph {
+      display: inline-block;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-weight: bold;
+      font-style: normal;
+      color: #b8860b;
+      text-shadow: 0 0 1px rgba(184, 134, 11, 0.3);
+      margin: 0 1px;
+      line-height: 1;
+      vertical-align: middle;
+    }
+    .alph::before {
+      content: 'Α';
+    }
 
     @media (max-width: 600px) {
       .stats-grid { grid-template-columns: 1fr; }
@@ -143,15 +159,15 @@
     
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-value">1.1M AC</div>
+        <div class="stat-value">1.1M <span class="alph"></span></div>
         <div class="stat-label">Total Supply</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">100K AC</div>
+        <div class="stat-value">100K <span class="alph"></span></div>
         <div class="stat-label">Velocity Pool</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">25 AC</div>
+        <div class="stat-value">25 <span class="alph"></span></div>
         <div class="stat-label">Signup Grant</div>
       </div>
     </div>
