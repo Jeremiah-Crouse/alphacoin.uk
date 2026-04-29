@@ -866,9 +866,9 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'Admin',
-        email: 'admin@alphacoin.uk',
-        message: '...', 
+        name: 'The King',
+        email: 'theking@crousia.com',
+        message: 'WAKE UP.', 
         source: 'internal_heartbeat',
         timestamp: new Date()
       };
