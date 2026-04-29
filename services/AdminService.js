@@ -72,7 +72,7 @@ class AdminService {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    this.geminiModel = process.env.GEMINI_MODEL_NAME || "gemini-flash-latest";
+    this.geminiModel = process.env.GEMINI_MODEL_NAME || "gemini-2.5-flash-lite";
     this.geminiClient = genAI;
     
     console.log(`✓ Backup Admin initialized: Ashley Gemini (${this.geminiModel})`);

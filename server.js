@@ -39,8 +39,8 @@ let gmailPollingIntervalId;
 const TELEGRAM_POLLING_INTERVAL = 60 * 1000; // 1 minute cadence
 let telegramPollingIntervalId;
 
-// Autonomous Loop: Every 20 minutes, Admin evaluates his own business
-const AUTONOMOUS_INTERVAL = process.env.AUTONOMOUS_INTERVAL || 20 * 60 * 1000;
+// Stream of Consciousness: Delay between continuous thinking turns
+const STREAM_DELAY = process.env.STREAM_DELAY || 30 * 1000; // 30 seconds
 
 // Routes
 
@@ -832,10 +832,10 @@ async function pollIncomingEmails() {
 }
 
 /**
- * The Heartbeat: Initiates an autonomous thinking turn for Big Pickle
+ * The Stream: Initiates an autonomous thinking turn for Big Pickle
  */
-async function triggerAutonomousAction() {
-  console.log('\n[Heartbeat] Big Pickle is self-reflecting...');
+async function processStreamTurn() {
+  console.log('\n[Stream] Big Pickle is entering a state of active reflection...');
   try {
     // Create a system-level conversation about self-optimization
     const autonomousMessage = {
@@ -853,9 +853,23 @@ async function triggerAutonomousAction() {
     const storedMessage = await messageStore.addMessage(autonomousMessage);
     await processAdminResponse(storedMessage);
     
-    console.log('[Heartbeat] Autonomous turn completed.\n');
+    console.log('[Stream] Thought cycle completed.\n');
   } catch (error) {
-    console.error('[Heartbeat] Error in autonomous loop:', error);
+    console.error('[Stream] Error in autonomous loop:', error);
+  }
+}
+
+/**
+ * Starts the continuous stream of consciousness
+ */
+async function startStreamOfConsciousness() {
+  console.log(`[System] Stream of Consciousness initialized. Delay: ${STREAM_DELAY / 1000}s.`);
+  
+  while (true) {
+    await processStreamTurn();
+    
+    // Brief pause to allow event loop and external I/O (Telegram/Gmail) to process
+    await new Promise(resolve => setTimeout(resolve, STREAM_DELAY));
   }
 }
 
@@ -880,12 +894,8 @@ app.listen(PORT, () => {
     console.warn('Telegram token missing. Polling skipped.');
   }
 
-  // Start the Autonomous Loop and run once immediately on load
-  setInterval(triggerAutonomousAction, AUTONOMOUS_INTERVAL);
-  console.log(`Autonomous heartbeat active. Big Pickle is awaiting user input or self-optimizing every ${AUTONOMOUS_INTERVAL / 60000} minutes.`);
-  
-  // Initial self-optimization on startup
-  triggerAutonomousAction();
+  // Launch the infinite thinking loop
+  startStreamOfConsciousness();
 });
 
 // ═══════════════════════════════════════════════════════════
