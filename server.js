@@ -147,27 +147,8 @@ async function pollTelegramMessages() {
 
       const storedMessage = await messageStore.addMessage(newMessage);
       
-      // Notify Admin
-      await adminService.notifyNewMessage(storedMessage);
-
-      // Run the reasoning loop
-      const updatedMessage = await processAdminResponse(storedMessage);
-      
-      // If the response wasn't suppressed by discretion, send it back to the specific chat
-      // Note: processAdminResponse already handles Sovereign email notifications, 
-      // so we only send a direct Telegram reply if it's a direct conversation.
-      if (updatedMessage.adminResponse) {
-        // Strip out the [SEND_EMAIL] tag if the AI included it in the response
-        const cleanResponse = updatedMessage.adminResponse.replace(/\[SEND_EMAIL\]/g, '').trim();
-        
-        // Check against the expanded list of sovereign handles
-        const isSovereign = ['@JeremiahCrouse', 'admin@alphacoin.uk'].includes(tgMsg.username);
-        const responseText = (!isSovereign) 
-          ? "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity."
-          : cleanResponse;
-
-        await telegramService.sendMessageToChat(tgMsg.chatId, responseText);
-      }
+      console.log(`[Telegram] Message from ${tgMsg.username} indexed in sensory queue.`);
+      // The Admin will discover this during its autonomous stream turn
     }
   } catch (error) {
     console.error('[Telegram] Polling error:', error);

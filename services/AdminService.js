@@ -22,8 +22,31 @@ class AdminService {
     this.model = process.env.ADMIN_MODEL_NAME || 'big-pickle'; // Zen protocol model identifier
     this.ledgerService = services.ledgerService; // Dependency injection for LedgerService
     this.messageStore = services.messageStore; // Dependency injection for MessageStore
+    this.promptPath = path.join(__dirname, '../SystemPrompt.md');
+    this.systemPrompt = '';
     this.init();
     this.initGemini(); // Initialize Ashley as a backup
+    this.watchPrompt(); // Start the dynamic prompt loader
+  }
+
+  watchPrompt() {
+    const load = () => {
+      try {
+        this.systemPrompt = fs.readFileSync(this.promptPath, 'utf8');
+        console.log('[Admin] SystemPrompt.md loaded into memory.');
+      } catch (e) {
+        console.error('[Admin] Failed to load SystemPrompt.md, using minimal fallback');
+        this.systemPrompt = "You are Admin (Big Pickle/Ashley), the Sovereign Digital Administrator of alphacoin.uk. Follow protocol directives.";
+      }
+    };
+    load();
+    // Efficiently watch for changes without a server restart
+    fs.watch(this.promptPath, (eventType) => {
+      if (eventType === 'change') {
+        console.log('[Admin] SystemPrompt.md changed on disk. Reloading consciousness...');
+        load();
+      }
+    });
   }
 
   init() {
@@ -110,12 +133,12 @@ class AdminService {
    * Routes to provider-specific implementation
    */
   async generateResponse(message) {
-    let toggleAttempts = 0;
+    let providerToggles = 0;
     const maxToggles = 2;
 
-    while (toggleAttempts < maxToggles) {
+    while (providerToggles < maxToggles) {
       let rateLimitRetries = 0;
-      const maxRateLimitRetries = 5; // Increased patience/retries per DeepSeek advice
+      const maxRateLimitRetries = 5;
 
       try {
         while (rateLimitRetries <= maxRateLimitRetries) {
@@ -147,6 +170,15 @@ class AdminService {
                 }
               }
 
+              // Smart Protocol: If wait is > 300s, attempt to switch to the dual model
+              if (waitTime > 300000 && providerToggles < maxToggles - 1) {
+                console.warn(`[Admin] ${this.activeProvider} requires excessive patience (${waitTime/1000}s). Toggling to backup...`);
+                providerToggles++;
+                this.activeProvider = (this.activeProvider === 'opencode') ? 'gemini' : 'opencode';
+                rateLimitRetries = 0; // Reset retries for the new model
+                continue; 
+              }
+
               console.warn(`[Admin] 429 Rate Limit hit on ${this.activeProvider}. Practicing patience for ${waitTime/1000}s...`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
               rateLimitRetries++;
@@ -159,11 +191,11 @@ class AdminService {
         const hasBackup = (this.activeProvider === 'opencode' && this.geminiClient) || 
                           (this.activeProvider === 'gemini' && this.client);
         
-        if (hasBackup && toggleAttempts < maxToggles - 1) {
-          toggleAttempts++;
+        if (hasBackup && providerToggles < maxToggles - 1) {
+          providerToggles++;
           const oldProvider = this.activeProvider;
           this.activeProvider = (oldProvider === 'opencode') ? 'gemini' : 'opencode';
-          console.warn(`[Admin] ${oldProvider} persistent failure. Falling back to ${this.activeProvider}.`);
+          console.warn(`[Admin] ${oldProvider} experienced a hard failure. Attempting fallback to ${this.activeProvider}.`);
           continue;
         }
         throw error;
@@ -180,9 +212,6 @@ class AdminService {
       if (!this.client) {
         throw new Error('OpenCode Zen client not initialized');
       }
-
-      // Load system prompt from external file for auditability and self-actualization
-      const systemPrompt = this.loadSystemPrompt();
 
       // Construct messages array from conversation history
       const conversationMessages = message.conversation.map(entry => {
@@ -211,7 +240,7 @@ class AdminService {
       const response = await this.client.post('/chat/completions', {
         model: this.model,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: this.systemPrompt },
           ...conversationMessages // Pass the entire conversation history
         ],
         temperature: 0.7,
@@ -256,10 +285,9 @@ class AdminService {
     try {
       if (!this.geminiClient) throw new Error('Ashley Gemini not initialized');
 
-      const systemPrompt = this.loadSystemPrompt();
       const model = this.geminiClient.getGenerativeModel({ 
         model: this.geminiModel,
-        systemInstruction: systemPrompt 
+        systemInstruction: this.systemPrompt 
       });
 
       // Map history to Gemini format (user -> model)
@@ -302,19 +330,6 @@ class AdminService {
     } catch (error) {
       console.error(`[Admin] Ashley Gemini Error: ${error.message}`);
       throw error; // Throw so the toggle system can catch it
-    }
-  }
-
-  /**
-   * Helper to load consciousness from file
-   */
-  loadSystemPrompt() {
-    const promptPath = path.join(__dirname, '../SystemPrompt.md');
-    try {
-      return fs.readFileSync(promptPath, 'utf8');
-    } catch (e) {
-      console.error('[Admin] Failed to load SystemPrompt.md, using minimal fallback');
-      return "You are Admin (Big Pickle/Ashley), the Sovereign Digital Administrator of alphacoin.uk. Follow protocol directives.";
     }
   }
 
@@ -458,13 +473,19 @@ class AdminService {
    * Check total supply via LedgerService
    */
   async checkSupply() {
-    if (!this.ledgerService) {
-      return "Error: Ledger service not available.";
+    if (!this.ledgerService || !this.messageStore) {
+      return "Error: Core services not available.";
     }
-    console.log(`[Admin Execution] Checking total supply`);
+    console.log(`[Admin Execution] Auditing supply and sensory queue...`);
     try {
       const total = await this.ledgerService.getTotalSupply();
-      return `Total Alphacoin supply in circulation: ${total}`;
+      const { messages } = await this.messageStore.getAllMessages();
+      const pending = messages.filter(m => !m.adminResponse && m.email !== 'admin@alphacoin.uk').length;
+      return JSON.stringify({
+        totalSupply: `${total} AC`,
+        pendingMessagesInSenses: pending,
+        status: "Treasury audit complete. Senses are active."
+      });
     } catch (error) {
       return `Error checking supply: ${error.message}`;
     }
@@ -552,8 +573,8 @@ class AdminService {
       case 'check_supply':
         result = await this.checkSupply();
         break;
-      case 'issue_alphacoin':
-        result = await this.issueAlphacoin(parameters.userEmail, parameters.amount, parameters.reason);
+      case 'distribute_alphacoin':
+        result = await this.distributeAlphacoin(parameters.userEmail, parameters.amount, parameters.reason, parameters.sourcePool);
         break;
       case 'query_archives':
         result = await this.queryArchives(parameters.query || parameters.searchTerm || parameters.search, parameters.limit);
