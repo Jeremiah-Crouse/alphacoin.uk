@@ -117,7 +117,7 @@ class MessageStore {
     return this.getMessage(id);
   }
 
-  async getAllMessages(limit = null, before = null, after = null) {
+  async getAllMessages(limit = null, offset = 0, before = null, after = null) {
     let query = 'SELECT * FROM messages';
     let params = [];
     let clauses = [];
@@ -142,20 +142,29 @@ class MessageStore {
       query += ' ORDER BY timestamp DESC';
     }
 
-    if (limit) {
+    if (limit !== null) {
       query += ' LIMIT ?';
-      params.push(limit);
+      params.push(parseInt(limit) + 1); // Fetch one extra to determine hasMore
     }
 
-    const messages = this.db.prepare(query).all(...params);
+    if (offset) {
+      query += ' OFFSET ?';
+      params.push(parseInt(offset));
+    }
+
+    const rows = this.db.prepare(query).all(...params);
     
-    // If we fetched DESC to get the most recent, reverse them for chronological UI display
-    if (!after) messages.reverse();
+    let hasMore = false;
+    let messages = rows;
+    if (limit !== null && messages.length > limit) {
+      hasMore = true;
+      messages.pop();
+    }
 
     for (const msg of messages) {
       msg.conversation = this.getConversationEntries(msg.id);
     }
-    return messages;
+    return { messages, hasMore };
   }
 
   getConversationEntries(messageId) {

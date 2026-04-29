@@ -237,9 +237,10 @@ app.post('/api/messages', async (req, res) => {
 // API: Get all messages and responses (for feed.html)
 app.get('/api/messages', async (req, res) => {
   try {
-    const { limit, before, after } = req.query;
-    const messages = await messageStore.getAllMessages(
+    const { limit, offset, before, after } = req.query;
+    const { messages, hasMore } = await messageStore.getAllMessages(
       limit ? parseInt(limit) : null,
+      offset ? parseInt(offset) : 0,
       before ? before : null,
       after ? after : null
     );
@@ -249,7 +250,7 @@ app.get('/api/messages', async (req, res) => {
       ...msg,
       conversation: msg.conversation.filter(entry => !entry.hidden)
     }));
-    res.json(publicMessages);
+    res.json({ messages: publicMessages, hasMore });
   } catch (error) {
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
@@ -321,7 +322,7 @@ app.post('/api/messages/:id/generate-response', async (req, res) => {
 // API: Generate responses for all pending messages
 app.post('/api/messages/generate-all-responses', async (req, res) => {
   try {
-    const messages = await messageStore.getAllMessages();
+    const { messages } = await messageStore.getAllMessages();
     const pendingMessages = messages.filter(msg => !msg.adminResponse);
 
     if (pendingMessages.length === 0) {
