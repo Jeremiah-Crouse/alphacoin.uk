@@ -479,10 +479,14 @@ class AdminService {
     console.log(`[Admin Execution] Auditing supply and sensory queue...`);
     try {
       const total = await this.ledgerService.getTotalSupply();
+      const faucetBal = await this.ledgerService.getFaucetWalletBalance();
+      const velocityBal = await this.ledgerService.getVelocityPoolBalance();
       const { messages } = await this.messageStore.getAllMessages();
       const pending = messages.filter(m => !m.adminResponse && m.email !== 'admin@alphacoin.uk').length;
       return JSON.stringify({
         totalSupply: `${total} AC`,
+        faucetPool: `${faucetBal} AC`,
+        velocityPool: `${velocityBal} AC`,
         pendingMessagesInSenses: pending,
         status: "Treasury audit complete. Senses are active."
       });

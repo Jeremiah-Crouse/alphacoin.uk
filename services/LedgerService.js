@@ -89,6 +89,16 @@ class LedgerService {
       this.db.prepare('UPDATE faucet_wallet SET balance = balance - ?, last_updated = ? WHERE id = 1')
         .run(parseFloat(amount), timestamp);
     }
+
+    // For velocity pool distributions, draw from velocity_pool
+    if (source === 'velocity_pool') {
+      const pool = this.db.prepare('SELECT * FROM velocity_pool WHERE id = 1').get();
+      if (!pool || pool.balance < parseFloat(amount)) {
+        throw new Error('Velocity pool insufficient funds');
+      }
+      this.db.prepare('UPDATE velocity_pool SET balance = balance - ?, last_updated = ? WHERE id = 1')
+        .run(parseFloat(amount), timestamp);
+    }
     
     const info = this.db.prepare('INSERT INTO ledger (userEmail, amount, reason, timestamp) VALUES (?, ?, ?, ?)')
       .run(userEmail, parseFloat(amount), reason, timestamp);

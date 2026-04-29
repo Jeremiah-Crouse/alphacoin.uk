@@ -239,7 +239,7 @@ class MessageStore {
   }
 
   async getMessagesByEmail(email) {
-    const messages = this.db.prepare('SELECT * FROM messages WHERE email = ?').all(email);
+    const messages = this.db.prepare('SELECT * FROM messages WHERE email = ? ORDER BY timestamp DESC').all(email);
     for (const msg of messages) {
       msg.conversation = this.getConversationEntries(msg.id);
     }
