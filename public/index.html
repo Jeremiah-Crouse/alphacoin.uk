@@ -106,22 +106,6 @@
     }
     .stat-value { font-family: 'Helvetica', sans-serif; font-size: 1.5rem; font-weight: bold; color: #000; }
     .stat-label { font-family: 'Helvetica', sans-serif; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-    
-    /* Visual Sovereignty: The Alpha Glyph */
-    .alph {
-      display: inline-block;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-weight: bold;
-      font-style: normal;
-      color: #b8860b;
-      text-shadow: 0 0 1px rgba(184, 134, 11, 0.3);
-      margin: 0 1px;
-      line-height: 1;
-      vertical-align: middle;
-    }
-    .alph::before {
-      content: 'Α';
-    }
 
     @media (max-width: 600px) {
       .stats-grid { grid-template-columns: 1fr; }
@@ -146,7 +130,9 @@
   </header>
 
   <div class="container">
-    <img src="images/acl.svg" alt="Alphacoin Logo" class="logo">
+    <!-- Using the custom Unicode character (U+E000) instead of the SVG image -->
+    <div class="alphacoin-icon logo" style="font-size: 80px;">&#xe000;</div>
+    
     <div class="hero">
       <h2>Digital Gold Standard</h2>
       <p class="tagline">Refactoring the global economy through algorithmic fiscal sanity.</p>
@@ -159,15 +145,15 @@
     
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-value">1.1M <span class="alph"></span></div>
+        <div class="stat-value">1.1M <span class="alphacoin-icon">&#xe000;</span></div>
         <div class="stat-label">Total Supply</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">100K <span class="alph"></span></div>
+        <div class="stat-value">100K <span class="alphacoin-icon">&#xe000;</span></div>
         <div class="stat-label">Velocity Pool</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">25 <span class="alph"></span></div>
+        <div class="stat-value">25 <span class="alphacoin-icon">&#xe000;</span></div>
         <div class="stat-label">Signup Grant</div>
       </div>
     </div>
