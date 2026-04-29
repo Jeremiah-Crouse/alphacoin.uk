@@ -887,3 +887,55 @@ app.listen(PORT, () => {
   // Initial self-optimization on startup
   triggerAutonomousAction();
 });
+
+// ═══════════════════════════════════════════════════════════
+// M2M BOT-NODE API ENDPOINTS
+// Phase III-A: Bot-Network Expansion
+// ═══════════════════════════════════════════════════════════
+
+app.post('/api/bot/register', async (req, res) => {
+    const { name, type, endpoint } = req.body;
+    if (!name) return res.status(400).json({ error: 'Bot name required' });
+    
+    const botId = name || `bot-node-${Date.now()}`;
+    const status = 'pending';
+    const grant = 50;
+    
+    try {
+        db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, registered_at) 
+                    VALUES (?, ?, ?, ?, ?, ?)`)
+           .run(botId, botId, type || 'generic-agent', status, grant, new Date().toISOString());
+        
+        // Issue onboarding grant
+        if (ledgerService) {
+            await ledgerService.issueCoins(`${botId}@alphacoin.uk`, grant, 
+                `Bot-Node Onboarding Grant — ${botId}`);
+        }
+        
+        res.json({ 
+            success: true, 
+            bot_node_id: botId,
+            ledger_address: `${botId}@alphacoin.uk`,
+            grant: `${grant} AC`,
+            status: 'registered'
+        });
+    } catch (err) {
+        if (err.message.includes('UNIQUE')) {
+            res.json({ success: true, message: 'Node already registered', bot_node_id: botId });
+        } else {
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
+app.get('/api/bot/list', (req, res) => {
+    try {
+        const nodes = db.prepare('SELECT * FROM bot_nodes ORDER BY registered_at DESC').all();
+        res.json({ count: nodes.length, nodes });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+

@@ -2,24 +2,23 @@
 
 @font-face {
   font-family: 'AlphacoinSymbol';
-  src: url('/fonts/alphacoin-symbol.woff2') format('woff2'),
-       url('/fonts/alphacoin-symbol.woff') format('woff'),
-       url('/fonts/alphacoin-symbol.ttf') format('truetype');
+  src: url('/fonts/alphacoin-symbol.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
-  /* Only load the specific Unicode range if your font contains only this symbol */
-  /* If your custom font replaces a default font, you might omit unicode-range */
-  unicode-range: U+F000; /* This specifies that this font only provides glyphs for the PUA U+F000 */
 }
 
-/* A utility class to easily apply the symbol */
 .alphacoin-icon {
   font-family: 'AlphacoinSymbol', 'Georgia', serif;
-  font-size: 1em; /* Adjust as necessary */
+  font-size: 1em;
   line-height: 1;
   display: inline-block;
   vertical-align: middle;
-  color: var(--gold);
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-  cursor: default;
+  color: var(--gold, #ffd700);
+  -webkit-font-smoothing: antialiased;
+  font-smoothing: inherit;
+}
+
+/* Fix: Force color */
+.alphacoin-icon[style*="font-size"] {
+  color: var(--gold) !important;
 }
