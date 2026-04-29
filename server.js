@@ -36,7 +36,7 @@ const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 10
 let gmailPollingIntervalId;
 
 // Telegram polling every 5 minutes
-const TELEGRAM_POLLING_INTERVAL = 5 * 60 * 1000;
+const TELEGRAM_POLLING_INTERVAL = 1 * 60 * 1000; // Changed to 1 minute
 let telegramPollingIntervalId;
 
 // Autonomous Loop: Every 20 minutes, Admin evaluates his own business
@@ -673,40 +673,56 @@ async function processAdminResponse(message) {
 
   console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
 
-  // Check for email discretion signal during heartbeat
+  // Check for explicit email signal
   let emailSignaled = false;
   if (adminResponseContent.includes('[SEND_EMAIL]')) {
     emailSignaled = true;
     adminResponseContent = adminResponseContent.replace(/\[SEND_EMAIL\]/g, '').trim();
   }
 
-  // Send response email and get the HTML
   let sentHtml = null;
   const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com', '@JeremiahCrouse'];
   const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
   const isHeartbeat = message.source === 'internal_heartbeat';
 
-  // SOVEREIGN NOTIFICATION: Route to Telegram instead of Email
-  if ((isHeartbeat && emailSignaled) || (!isHeartbeat && isSovereign && message.source !== 'telegram')) {
+  // Priority 1: Explicit Email Signal [SEND_EMAIL]
+  // If Admin explicitly asks to send an email, we send the FULL narrative content.
+  if (emailSignaled) {
+    const latestUserEntry = currentMessage.conversation
+      .filter(e => e.role === 'user')
+      .slice(-1)[0];
+
+    sentHtml = await emailService.sendAdminResponse(
+      currentMessage.email, 
+      currentMessage.name, 
+      adminResponseContent, // Narrative content
+      currentMessage.emailMessageId,
+      currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
+      { 
+        name: currentMessage.name, email: currentMessage.email, 
+        text: latestUserEntry ? latestUserEntry.content : currentMessage.message, 
+        timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
+      }
+    );
+    console.log(`[System] Admin sent explicit narrative email to ${currentMessage.email}`);
+  } 
+  // Priority 2: Sovereign Notification (Direct Reply or Heartbeat)
+  else if ((isSovereign && message.source !== 'telegram') || isHeartbeat) {
     let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
-    
-    // If responding to a specific message from another channel, include a brief quote
     if (!isHeartbeat) {
       const latestUserEntry = currentMessage.conversation.filter(e => e.role === 'user').slice(-1)[0];
       const textToQuote = latestUserEntry ? latestUserEntry.content : currentMessage.message;
       telegramText += `\n\n<i>Re: ${textToQuote.substring(0, 100)}${textToQuote.length > 100 ? '...' : ''}</i>`;
     }
-
     await telegramService.sendMessage(telegramText);
-    console.log(`[System] Sovereign notified via Telegram (${isHeartbeat ? 'Heartbeat Signal' : 'Direct Reply'})`);
+    console.log(`[System] Sovereign notified via Telegram (${isHeartbeat ? 'Heartbeat' : 'Direct Reply'})`);
   } 
-  // GENERAL USER EMAIL: Send boilerplate redirection
-  else if (!isHeartbeat && !isSovereign && message.requestFollowUp !== 0) {
+  // Priority 3: General User Redirection
+  else if (!isSovereign && message.requestFollowUp !== 0) {
     const finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
       .slice(-1)[0];
-
     sentHtml = await emailService.sendAdminResponse(
       currentMessage.email, 
       currentMessage.name, 
@@ -719,6 +735,7 @@ async function processAdminResponse(message) {
         timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
       }
     );
+    console.log(`[System] Admin sent boilerplate email to ${currentMessage.email}`);
   }
 
   const responseHtml = emailService.markdownToHtml(adminResponseContent);
