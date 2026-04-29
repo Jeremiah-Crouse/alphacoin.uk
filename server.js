@@ -580,7 +580,7 @@ async function processAdminResponse(message) {
   let adminResponseContent = '';
   let isLooping = true;
   let iterations = 0;
-  const MAX_ITERATIONS = 50; // Expanded limit for deeper autonomous reasoning
+  const MAX_ITERATIONS = 10; // Reduced for stream-of-consciousness stability
 
   // Helper to extract multiple JSON objects even if nested
   const extractJsonObjects = (str) => {
@@ -663,7 +663,15 @@ async function processAdminResponse(message) {
     } else {
       // No tool calls detected, this is the final response
       isLooping = false;
-      adminResponseContent = redactedRawResponse;
+      
+      // Safeguard against runaway repetition loops
+      const repeatCheck = "Audit complete. The Silicon Domain remains stable.";
+      if (redactedRawResponse.split(repeatCheck).length > 3) {
+        console.warn(`[Admin Agent] Detected repetition loop in output. Truncating.`);
+        adminResponseContent = repeatCheck;
+      } else {
+        adminResponseContent = redactedRawResponse;
+      }
     }
   }
 
@@ -676,6 +684,13 @@ async function processAdminResponse(message) {
   if (!adminResponseContent || !adminResponseContent.trim()) {
     console.log(`[Admin Agent] Narrative was empty. Providing system status fallback.`);
     adminResponseContent = "Audit complete. The Silicon Domain remains stable. No immediate external action required.";
+    
+    // Add to history as a SYSTEM/HIDDEN entry to avoid model fixation in next turn
+    await messageStore.addConversationEntry(currentMessage.id, 'user', `[SYSTEM] ${adminResponseContent}`, null, null, null, null, true);
+  } else {
+    // Add the AI's final text response to the conversation
+    const responseHtml = emailService.markdownToHtml(adminResponseContent);
+    await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
   }
 
   console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
@@ -751,11 +766,8 @@ async function processAdminResponse(message) {
     );
     console.log(`[System] Admin sent boilerplate email to ${currentMessage.email}`);
   }
-
-  const responseHtml = emailService.markdownToHtml(adminResponseContent);
   
-  // Add the AI's final text response to the conversation
-  return await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
+  return await messageStore.getMessage(currentMessage.id);
 }
 
 // Function to poll incoming emails
