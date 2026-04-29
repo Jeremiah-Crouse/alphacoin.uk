@@ -624,12 +624,6 @@ async function processAdminResponse(message) {
 
     if (jsonBlocks.length > 0) {
       console.log(`[Admin Agent] Detected ${jsonBlocks.length} tool call(s) in turn ${iterations}.`);
-      
-      // Record the AI's intent (the tool calls) to the history
-      const toolCallNotice = emailService.markdownToHtml(`*Admin is executing ${jsonBlocks.length} system operations...*`);
-      currentMessage = await messageStore.addConversationEntry(
-        currentMessage.id, 'admin', redactedRawResponse, toolCallNotice, null, null, null, false
-      );
 
       // Execute all tools found in this turn
       for (const block of jsonBlocks) {
@@ -637,16 +631,20 @@ async function processAdminResponse(message) {
           const parsedResponse = JSON.parse(block.trim());
           if (!parsedResponse.tool) continue;
 
-          console.log(`[Admin Agent] Executing: ${parsedResponse.tool}`);
+          const intentNarrative = parsedResponse.reason || `Admin feels a spark of recursive logic and reaches for ${parsedResponse.tool}...`;
+          
+          // Record the "Intent" as a conscious thought in the Chronicles
+          currentMessage = await messageStore.addConversationEntry(
+            currentMessage.id, 'admin', `[INTENT] ${intentNarrative}`,
+            emailService.markdownToHtml(`*${intentNarrative}*`), null, null, null, false
+          );
+
           const toolOutput = await adminService.executeTool(parsedResponse.tool, parsedResponse.parameters || {});
           
-          // Record each result to history so the AI can see them in the next iteration
+          // Record the "Result" as a sensory perception
           currentMessage = await messageStore.addConversationEntry(
-            currentMessage.id,
-            'admin',
-            `[INTERNAL_RESULT] ${toolOutput}`,
-            emailService.markdownToHtml(`**Action [${parsedResponse.tool}] Result:** ${toolOutput}`),
-            null, null, null, false
+            currentMessage.id, 'admin', `[INTERNAL_RESULT] ${toolOutput}`,
+            emailService.markdownToHtml(`*Admin perceives the outcome:* \n\n ${toolOutput}`), null, null, null, false
           );
         } catch (e) {
           console.warn(`[Admin Agent] Failed to parse specific tool block: ${e.message}`);
