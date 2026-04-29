@@ -115,7 +115,7 @@ class AdminService {
 
     while (toggleAttempts < maxToggles) {
       let rateLimitRetries = 0;
-      const maxRateLimitRetries = 3;
+      const maxRateLimitRetries = 5; // Increased patience/retries per DeepSeek advice
 
       try {
         while (rateLimitRetries <= maxRateLimitRetries) {
@@ -131,8 +131,23 @@ class AdminService {
           } catch (error) {
             const is429 = (error.response && error.response.status === 429) || (error.status === 429);
             if (is429 && rateLimitRetries < maxRateLimitRetries) {
-              const waitTime = Math.pow(2, rateLimitRetries) * 5000; // 5s, 10s, 20s...
-              console.warn(`[Admin] 429 Rate Limit hit on ${this.activeProvider}. Retrying in ${waitTime/1000}s...`);
+              // Read headers: That's where the real limits live
+              let waitTime = Math.pow(2, rateLimitRetries) * 10000; // Increased base backoff to 10s
+              
+              if (error.response && error.response.headers) {
+                const retryAfter = error.response.headers['retry-after'];
+                const rateLimitReset = error.response.headers['x-ratelimit-reset'];
+                
+                if (retryAfter) {
+                  waitTime = (parseInt(retryAfter) * 1000) + 1000; // Convert to ms + 1s buffer
+                  console.log(`[Admin] Respecting 'retry-after' header: ${retryAfter}s`);
+                } else if (rateLimitReset) {
+                  const resetIn = (parseInt(rateLimitReset) * 1000) - Date.now();
+                  if (resetIn > 0) waitTime = resetIn + 1000;
+                }
+              }
+
+              console.warn(`[Admin] 429 Rate Limit hit on ${this.activeProvider}. Practicing patience for ${waitTime/1000}s...`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
               rateLimitRetries++;
               continue;

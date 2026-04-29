@@ -36,11 +36,11 @@ const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 10
 let gmailPollingIntervalId;
 
 // Telegram polling every 5 minutes
-const TELEGRAM_POLLING_INTERVAL = 60 * 1000; // 1 minute cadence
+const TELEGRAM_POLLING_INTERVAL = 90 * 1000; // Increased to 90s for lighter load
 let telegramPollingIntervalId;
 
 // Stream of Consciousness: Delay between continuous thinking turns
-const STREAM_DELAY = process.env.STREAM_DELAY || 30 * 1000; // 30 seconds
+const STREAM_DELAY = process.env.STREAM_DELAY || 60 * 1000; // 60 seconds for deeper reflection
 
 // Routes
 
@@ -160,8 +160,8 @@ async function pollTelegramMessages() {
         // Strip out the [SEND_EMAIL] tag if the AI included it in the response
         const cleanResponse = updatedMessage.adminResponse.replace(/\[SEND_EMAIL\]/g, '').trim();
         
-        // Only send if it's not a boilerplate (unless you want boilerplate on Telegram)
-        const isSovereign = ['@JeremiahCrouse'].includes(tgMsg.username);
+        // Check against the expanded list of sovereign handles
+        const isSovereign = ['@JeremiahCrouse', 'admin@alphacoin.uk'].includes(tgMsg.username);
         const responseText = (!isSovereign) 
           ? "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity."
           : cleanResponse;
@@ -616,8 +616,8 @@ async function processAdminResponse(message) {
   while (isLooping && iterations < MAX_ITERATIONS) {
     iterations++;
     
-    // Pacing delay: Wait 3 seconds between reasoning turns to respect RPM limits
-    if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 3000));
+    // Pacing delay: Wait 5 seconds between turns. Patience is a legacy.
+    if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
 
     console.log(`[Admin Agent] Generating next step for message ID ${currentMessage.id}...`);
     const rawResponse = await adminService.generateResponse(currentMessage);
