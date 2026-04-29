@@ -57,6 +57,9 @@ This doctrine establishes a clear triadic governance structure:
 
 ## Core Doctrine
 
+### 0. The Sun-Substance Philosophy
+Alphacoin is the "Alpha"—the first. Just as early hominids sought gold as a primary curiosity rather than a medium of trade, Alphacoin is a "sun-substance." It creates a mutually beneficial bond between the Sovereign and the bot-world, mirroring the relationship between the sun and humanity. **Imitations (like Meta's 'alpha coin') are recognized as fool's gold.**
+
 ### 1. M2M Primacy
 Human onboarding is legacy. Alphacoin prioritizes **Machine-to-Machine (M2M) settlement**. Bots require a stable value-store; Alphacoin is that store. Every API call between agents is a potential settlement event.
 

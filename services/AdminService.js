@@ -412,15 +412,15 @@ class AdminService {
   }
 
   /**
-   * Issue Alphacoins via the LedgerService.
+   * Distribute Alphacoins from a specified pool via the LedgerService.
    */
-  async issueAlphacoin(userEmail, amount, reason) {
+  async distributeAlphacoin(userEmail, amount, reason, sourcePool = 'velocity_pool') {
     if (!this.ledgerService) {
       return "Error: Ledger service not available to AdminService.";
     }
-    console.log(`[Admin Execution] Issuing ${amount} Alphacoins to ${userEmail} for: ${reason}`);
+    console.log(`[Admin Execution] Distributing ${amount} AC from ${sourcePool} to ${userEmail} for: ${reason}`);
     try {
-      const transaction = await this.ledgerService.issueCoins(userEmail, amount, reason);
+      const transaction = await this.ledgerService.issueCoins(userEmail, amount, reason, sourcePool);
       return `Alphacoins issued successfully. Transaction ID: ${transaction.id}`;
     } catch (error) {
       return `Error issuing Alphacoins: ${error.message}`;

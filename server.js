@@ -800,15 +800,9 @@ async function pollIncomingEmails() {
       }
 
       if (linkedMessage) {
-        // It's a reply to an existing conversation
         console.log(`[Polling] Found reply for message ID ${linkedMessage.id} from ${email.from.email}`);
         const updatedMessage = await messageStore.addConversationEntry(linkedMessage.id, 'user', email.body, email.body, null, email.id, email.threadId);
-        
-        await processAdminResponse(updatedMessage); // Process the reply with the updated context
-
-        console.log(`[Polling] AI responded to email reply from ${email.from.email}`);
       } else {
-        // It's a new email, treat like a new contact form submission
         console.log(`[Polling] Found new incoming email from ${email.from.email} (Subject: ${email.subject})`);
         const newMessage = {
           name: email.from.name,
@@ -821,10 +815,6 @@ async function pollIncomingEmails() {
           emailThreadId: email.threadId,   // Store Gmail's thread ID
         };
         const storedMessage = await messageStore.addMessage(newMessage);
-
-        await processAdminResponse(storedMessage); // Process the new email with the agentic loop
-
-        console.log(`[Polling] AI responded to new email from ${email.from.email}`);
       }
 
       // Mark email as read to avoid reprocessing in the next poll
