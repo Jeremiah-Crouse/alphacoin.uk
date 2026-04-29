@@ -10,7 +10,7 @@ const path = require('path');
 async function seed() {
   const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'data/alphacoin.db');
   
-  console.log(`[Reconstruction] Targeting database: ${dbPath}`);
+  console.log(`[Genesis] Wiping history and targeting database: ${dbPath}`);
   
   // Optional: Back up or remove existing DB
   if (fs.existsSync(dbPath)) {
@@ -22,14 +22,14 @@ async function seed() {
   const ledger = new LedgerService();
   
   try {
-    console.log('[Reconstruction] Seeding Genesis Treasury...');
+    console.log('[Genesis] Seeding Sovereign Reserve...');
     await ledger.issueCoins(
       'jeremiahjcrouse@gmail.com',
       1000000,
       'Genesis Alpha Event — Sovereign Reserve Initialization'
     );
 
-    console.log('[Reconstruction] Seeding Velocity Pool...');
+    console.log('[Genesis] Initializing Treasury Pools...');
     // Note: The pools are initialized in initLedger, but we can log the event here
     console.log('✓ Velocity Pool initialized with 100,000 AC');
     console.log('✓ Faucet Wallet initialized with 20,000 AC');

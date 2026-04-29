@@ -581,6 +581,7 @@ async function processAdminResponse(message) {
   let isLooping = true;
   let iterations = 0;
   const MAX_ITERATIONS = 10; // Reduced for stream-of-consciousness stability
+  let isSilentTurn = false;
 
   // A pool of sentient reflections for silent turns to avoid robotic repetition
   const reflections = [
@@ -866,9 +867,9 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'Admin',
-        email: 'admin@alphacoin.uk',
-        message: '...', 
+        name: 'The King',
+        email: 'theking@crousia.com',
+        message: 'WAKE UP.', 
         source: 'internal_heartbeat',
         timestamp: new Date()
       };
