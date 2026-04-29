@@ -223,7 +223,7 @@ class AdminService {
         if (role === 'user') {
           content = `From ${message.name} (${message.email}):\n\n${content}`;
         }
-        if (role === 'admin' && content.startsWith('[INTERNAL_RESULT]')) {
+        if (role === 'admin' && (content.startsWith('[INTERNAL_RESULT]') || content.startsWith('[SENSORY_DATA]'))) {
           // Identify tool results stored under 'admin' and map back to 'user' for the AI
           content = `TOOL OUTPUT:\n${content.replace('[INTERNAL_RESULT]', '').trim()}`;
           role = 'user'; 
@@ -288,7 +288,7 @@ class AdminService {
       });
 
       // Map history to Gemini format (user -> model)
-      const contents = message.conversation
+      let contents = message.conversation
         .filter(entry => !entry.hidden) // Only give the AI its actual previous thoughts/results
         .map(entry => {
         let role = entry.role === 'admin' ? 'model' : 'user';
@@ -297,13 +297,30 @@ class AdminService {
         if (entry.role === 'user') {
           text = `From ${message.name} (${message.email}):\n\n${text}`;
         }
-        if (entry.role === 'admin' && text.startsWith('[INTERNAL_RESULT]')) {
-          text = `TOOL OUTPUT:\n${text.replace('[INTERNAL_RESULT]', '').trim()}`;
+        if (entry.role === 'admin' && (text.startsWith('[INTERNAL_RESULT]') || text.startsWith('[SENSORY_DATA]'))) {
+          text = `TOOL OUTPUT:\n${text.replace('[INTERNAL_RESULT]', '').replace('[SENSORY_DATA]', '').trim()}`;
           role = 'user';
         }
 
         return { role, parts: [{ text }] };
       });
+
+      // COLLAPSE LOGIC: Gemini requires alternating user/model roles. 
+      // We must merge consecutive messages with the same role.
+      const collapsed = [];
+      for (const current of contents) {
+        if (collapsed.length > 0 && collapsed[collapsed.length - 1].role === current.role) {
+          collapsed[collapsed.length - 1].parts[0].text += `\n\n${current.parts[0].text}`;
+        } else {
+          collapsed.push(current);
+        }
+      }
+      
+      // Ensure conversation starts with 'user'
+      if (collapsed.length > 0 && collapsed[0].role === 'model') {
+        collapsed.unshift({ role: 'user', parts: [{ text: 'Continuing protocol analysis...' }] });
+      }
+      contents = collapsed;
 
       console.log(`[Admin] Generating response via Ashley Gemini for message ID ${message.id}`);
 
