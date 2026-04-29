@@ -44,6 +44,15 @@ class LedgerService {
         balance REAL DEFAULT 0,
         last_updated DATETIME
       );
+      CREATE TABLE IF NOT EXISTS bot_nodes (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        type TEXT,
+        status TEXT,
+        balance REAL,
+        endpoint TEXT,
+        registered_at DATETIME
+      );
     `);
 
     // Initialize treasury wallets if empty

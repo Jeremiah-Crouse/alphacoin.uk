@@ -26,6 +26,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Initialize services
 const messageStore = new MessageStore();
 const ledgerService = new LedgerService(); // Initialize LedgerService
+const db = ledgerService.db; // Provide database access for bot routes
 const adminService = new AdminService({ messageStore, ledgerService }); // Pass services to AdminService
 const emailService = new EmailService();
 const userStore = new UserStore(); // Initialize UserStore for user onboarding
@@ -886,7 +887,7 @@ app.listen(PORT, () => {
 // ═══════════════════════════════════════════════════════════
 
 app.post('/api/bot/register', async (req, res) => {
-    const { name, type, endpoint } = req.body;
+    const { name, type, endpoint, agentManifest } = req.body;
     if (!name) return res.status(400).json({ error: 'Bot name required' });
     
     const botId = name || `bot-node-${Date.now()}`;
@@ -894,9 +895,9 @@ app.post('/api/bot/register', async (req, res) => {
     const grant = 50;
     
     try {
-        db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, registered_at) 
-                    VALUES (?, ?, ?, ?, ?, ?)`)
-           .run(botId, botId, type || 'generic-agent', status, grant, new Date().toISOString());
+        db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, endpoint, registered_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`)
+           .run(botId, name || botId, type || 'generic-agent', status, grant, endpoint || null, new Date().toISOString());
         
         // Issue onboarding grant
         if (ledgerService) {
