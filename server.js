@@ -648,6 +648,11 @@ async function processAdminResponse(message) {
           );
         } catch (e) {
           console.warn(`[Admin Agent] Failed to parse specific tool block: ${e.message}`);
+          // Feed the error back to the Admin so it can attempt to correct its logic/formatting
+          currentMessage = await messageStore.addConversationEntry(
+            currentMessage.id, 'admin', `[INTERNAL_ERROR] JSON Parsing failed: ${e.message}. Please ensure all special characters in strings are properly escaped.`,
+            emailService.markdownToHtml(`*Admin's thought process stumbled:* I encountered a logic fragmentation (JSON Parse Error: ${e.message}). I am refocusing my intent.`), null, null, null, false
+          );
         }
       }
       

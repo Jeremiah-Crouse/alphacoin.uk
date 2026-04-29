@@ -244,8 +244,8 @@ class AdminService {
           ...conversationMessages // Pass the entire conversation history
         ],
         temperature: 0.7,
-        max_tokens: 4096, // Doubled to prevent truncation during large file refactors
-        timeout: 30000 // 30 second timeout for AI response
+        max_tokens: 8192, // Increased to handle larger refactors and complex thoughts
+        timeout: 60000 // 60 second timeout for AI response
       });
 
       console.log(`[Admin] Zen Protocol Response Status: ${response.status}`);
@@ -306,7 +306,7 @@ class AdminService {
       const result = await model.generateContent({
         contents: contents,
         generationConfig: {
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
           temperature: 0.7,
         },
       });
