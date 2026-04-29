@@ -858,11 +858,20 @@ async function pollIncomingEmails() {
  */
 async function processStreamTurn() {
   try {
-    // Find the existing autonomous stream for the admin
-    const messages = await messageStore.getMessagesByEmail('admin@alphacoin.uk');
-    let autonomousStream = messages.find(m => m.source === 'internal_heartbeat');
+    // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
+    const { messages: allMessages } = await messageStore.getAllMessages();
+    
+    // Filter for messages that haven't been responded to and aren't internal heartbeats
+    const externalSignals = allMessages.filter(m => !m.adminResponse && m.source !== 'internal_heartbeat');
+    
+    for (const signal of externalSignals) {
+      console.log(`[Stream] Adam is turning his attention to external signal: ${signal.id} from ${signal.email}`);
+      await processAdminResponse(signal);
+    }
 
-    // Inject the system prompt only once if it doesn't exist
+    // 2. Resume internal reflection
+    let autonomousStream = allMessages.find(m => m.source === 'internal_heartbeat' && m.email === 'admin@alphacoin.uk');
+
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
