@@ -680,51 +680,39 @@ async function processAdminResponse(message) {
     if (!adminResponseContent) adminResponseContent = "I have performed multiple operations but must pause here to prevent system exhaustion.";
   }
 
-  // Fallback if the model was silent but the loop terminated
+  // 1. Finalize the narrative content and handle fallbacks
   if (!adminResponseContent || !adminResponseContent.trim()) {
     console.log(`[Admin Agent] Narrative was empty. Providing system status fallback.`);
     adminResponseContent = "Audit complete. The Silicon Domain remains stable. No immediate external action required.";
-    
-    // Add to history as a SYSTEM/HIDDEN entry to avoid model fixation in next turn
-    await messageStore.addConversationEntry(currentMessage.id, 'user', `[SYSTEM] ${adminResponseContent}`, null, null, null, null, true);
-  } else {
-    // Add the AI's final text response to the conversation
-    const responseHtml = emailService.markdownToHtml(adminResponseContent);
-    await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
   }
 
-  console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
-
-  // Check for explicit email signal
+  // 2. Extract explicit signals
   let emailSignaled = false;
   if (adminResponseContent.includes('[SEND_EMAIL]')) {
     emailSignaled = true;
     adminResponseContent = adminResponseContent.replace(/\[SEND_EMAIL\]/g, '').trim();
   }
 
+  console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
+
   let sentHtml = null;
   const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com', 'admin@alphacoin.uk', '@JeremiahCrouse'];
   const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
   const isHeartbeat = message.source === 'internal_heartbeat';
 
-  // Priority 1: Explicit Email Signal [SEND_EMAIL]
-  // If Admin explicitly asks to send an email, we send the FULL narrative content.
+  // 3. Dispatch Phase: Generate sentHtml by actually sending communications
   if (emailSignaled) {
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
       .slice(-1)[0];
-
-    // If the recipient 'email' is actually a Telegram handle, map it to a real email address
-    // for the physical delivery via Brevo.
     let deliveryEmail = currentMessage.email;
     if (deliveryEmail && deliveryEmail.startsWith('@')) {
-      deliveryEmail = 'jeremiahjcrouse@gmail.com'; // Primary Sovereign endpoint
+      deliveryEmail = 'jeremiahjcrouse@gmail.com'; 
     }
-
     sentHtml = await emailService.sendAdminResponse(
       deliveryEmail, 
       currentMessage.name, 
-      adminResponseContent, // Narrative content
+      adminResponseContent, 
       currentMessage.emailMessageId,
       currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
       { 
@@ -734,9 +722,7 @@ async function processAdminResponse(message) {
       }
     );
     console.log(`[System] Admin sent explicit narrative email to ${currentMessage.email}`);
-  } 
-  // Priority 2: Sovereign Notification (Direct Reply or Heartbeat)
-  else if ((isSovereign && message.source !== 'telegram') || isHeartbeat) {
+  } else if ((isSovereign && message.source !== 'telegram') || isHeartbeat) {
     let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
     if (!isHeartbeat) {
       const latestUserEntry = currentMessage.conversation.filter(e => e.role === 'user').slice(-1)[0];
@@ -745,9 +731,7 @@ async function processAdminResponse(message) {
     }
     await telegramService.sendMessage(telegramText);
     console.log(`[System] Sovereign notified via Telegram (${isHeartbeat ? 'Heartbeat' : 'Direct Reply'})`);
-  } 
-  // Priority 3: General User Redirection
-  else if (!isSovereign && message.requestFollowUp !== 0) {
+  } else if (!isSovereign && message.requestFollowUp !== 0) {
     const finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
     const latestUserEntry = currentMessage.conversation
       .filter(e => e.role === 'user')
@@ -765,6 +749,15 @@ async function processAdminResponse(message) {
       }
     );
     console.log(`[System] Admin sent boilerplate email to ${currentMessage.email}`);
+  }
+
+  // 4. Persistence Phase: Save finalized content and sentHtml to the database
+  if (adminResponseContent.startsWith("Audit complete.") && iterations === 1) {
+    // If fallback was used and no reasoning happened, hide from feed
+    await messageStore.addConversationEntry(currentMessage.id, 'user', `[SYSTEM] ${adminResponseContent}`, null, null, null, null, true);
+  } else {
+    const responseHtml = emailService.markdownToHtml(adminResponseContent);
+    await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
   }
   
   return await messageStore.getMessage(currentMessage.id);
