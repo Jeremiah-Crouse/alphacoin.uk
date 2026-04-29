@@ -10,7 +10,7 @@ const Database = require('better-sqlite3');
 
 class MessageStore {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data/alphacoin.db');
+    this.dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../data/alphacoin.db');
     this.ensureDataDir();
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');

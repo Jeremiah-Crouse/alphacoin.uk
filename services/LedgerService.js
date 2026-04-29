@@ -64,7 +64,7 @@ class LedgerService {
     // Initialize treasury wallets if empty
     const faucet = this.db.prepare('SELECT * FROM faucet_wallet WHERE id = 1').get();
     if (!faucet) {
-      this.db.prepare('INSERT INTO faucet_wallet (id, balance, last_updated) VALUES (1, 1000.0, ?)').run(new Date().toISOString());
+      this.db.prepare('INSERT INTO faucet_wallet (id, balance, last_updated) VALUES (1, 20000.0, ?)').run(new Date().toISOString());
     }
 
     const velocity = this.db.prepare('SELECT * FROM velocity_pool WHERE id = 1').get();
