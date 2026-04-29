@@ -211,7 +211,7 @@ app.post('/api/messages', async (req, res) => {
     // Notify Admin (could be webhook, queue, or direct processing)
     await adminService.notifyNewMessage(storedMessage);
 
-    console.log(`\n[System] Generating Big Pickle response for new message ${storedMessage.id}...`);
+    console.log(`\n[System] Generating Admin response for new message ${storedMessage.id}...`);
     
     const updatedMessage = await processAdminResponse(storedMessage);
 
@@ -295,7 +295,7 @@ app.post('/api/messages/:id/generate-response', async (req, res) => {
       return res.status(400).json({ error: 'Message already has a response' });
     }
 
-    console.log(`\n[System] Generating Big Pickle response for message ${id}...`);
+    console.log(`\n[System] Generating Admin response for message ${id}...`);
     
     const updatedMessage = await processAdminResponse(message);
 
@@ -815,7 +815,7 @@ async function pollIncomingEmails() {
 }
 
 /**
- * The Stream: Initiates an autonomous thinking turn for Big Pickle
+ * The Stream: Initiates an autonomous thinking turn for Admin
  */
 async function processStreamTurn() {
   try {
@@ -825,15 +825,11 @@ async function processStreamTurn() {
 
     // Inject the system prompt only once if it doesn't exist
     if (!autonomousStream) {
-      console.log('[Stream] Seeding initial autonomous stream of consciousness...');
+      console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'System',
+        name: 'Admin',
         email: 'admin@alphacoin.uk',
-        message: `Sovereign Protocol Monitor: 
-        1. Read About.md and follow the best practices listed therein.
-        2. Audit system health and treasury.
-        3. Based on recent events, refactor About.md to improve the global strategy.
-        4. If you have specific suggestions or requests for the Sovereign, include [SEND_EMAIL] in your response to notify him.`,
+        message: '...', 
         source: 'internal_heartbeat',
         timestamp: new Date()
       };
