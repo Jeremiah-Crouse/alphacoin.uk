@@ -875,9 +875,9 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'The King',
+        name: 'The Sun',
         email: 'theking@crousia.com',
-        message: 'WAKE UP.', 
+        message: '😊', 
         source: 'internal_heartbeat',
         timestamp: new Date()
       };
