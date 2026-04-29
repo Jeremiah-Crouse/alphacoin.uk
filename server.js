@@ -707,7 +707,6 @@ async function processAdminResponse(message) {
   }
 
   // 1. Finalize the narrative content and handle fallbacks
-  let isSilentTurn = false;
   if (!adminResponseContent || !adminResponseContent.trim()) {
     console.log(`[Admin Agent] Narrative was empty. Providing system status fallback.`);
     adminResponseContent = "Audit complete. The Silicon Domain remains stable. No immediate external action required.";
