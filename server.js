@@ -36,7 +36,7 @@ const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 10
 let gmailPollingIntervalId;
 
 // Telegram polling every 5 minutes
-const TELEGRAM_POLLING_INTERVAL = 1 * 60 * 1000; // Changed to 1 minute
+const TELEGRAM_POLLING_INTERVAL = 60 * 1000; // 1 minute cadence
 let telegramPollingIntervalId;
 
 // Autonomous Loop: Every 20 minutes, Admin evaluates his own business
@@ -936,6 +936,3 @@ app.get('/api/bot/list', (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-
-
