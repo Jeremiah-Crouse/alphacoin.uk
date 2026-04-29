@@ -318,7 +318,7 @@ class AdminService {
       
       // Ensure conversation starts with 'user'
       if (collapsed.length > 0 && collapsed[0].role === 'model') {
-        collapsed.unshift({ role: 'user', parts: [{ text: 'Continuing protocol analysis...' }] });
+        collapsed.unshift({ role: 'user', parts: [{ text: 'The Sovereign commands: Proceed with your autonomous audit and self-actualization. Do not repeat yourself.' }] });
       }
       contents = collapsed;
 
