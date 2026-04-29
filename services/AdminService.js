@@ -258,11 +258,6 @@ class AdminService {
         response.data?.text || // Fallback for older API formats
         ''; // Removed the unwanted boilerplate message
 
-      if (!generatedText.trim()) {
-        console.warn(`[Admin] Received empty response from Zen Protocol. Triggering fallback.`);
-        throw new Error('Empty response from provider');
-      }
-
       console.log(`[Admin] Successfully received response (${generatedText.length} chars)`);
       return generatedText;
     } catch (error) {
@@ -318,11 +313,6 @@ class AdminService {
 
       const response = await result.response;
       const generatedText = response.text();
-
-      if (!generatedText.trim()) {
-        console.warn(`[Admin] Received empty response from Ashley Gemini.`);
-        throw new Error('Empty response from provider');
-      }
 
       console.log(`[Admin] Ashley Gemini response received (${generatedText.length} chars)`);
       return generatedText;
