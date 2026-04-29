@@ -181,6 +181,12 @@ class EmailService {
         return;
       }
 
+      // Basic validation to prevent API errors from Telegram handles or malformed data
+      if (!toEmail || !toEmail.includes('@') || toEmail.startsWith('@')) {
+        console.warn(`[EmailService] Aborting send: "${toEmail}" is not a valid email address.`);
+        return;
+      }
+
       if (!this.pngLogoBase64) {
         console.warn('PNG logo not available, proceeding without embedded logo.');
         // Attempt to re-initialize in case it failed first time

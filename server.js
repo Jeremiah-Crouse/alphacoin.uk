@@ -701,8 +701,15 @@ async function processAdminResponse(message) {
       .filter(e => e.role === 'user')
       .slice(-1)[0];
 
+    // If the recipient 'email' is actually a Telegram handle, map it to a real email address
+    // for the physical delivery via Brevo.
+    let deliveryEmail = currentMessage.email;
+    if (deliveryEmail && deliveryEmail.startsWith('@')) {
+      deliveryEmail = 'jeremiahjcrouse@gmail.com'; // Primary Sovereign endpoint
+    }
+
     sentHtml = await emailService.sendAdminResponse(
-      currentMessage.email, 
+      deliveryEmail, 
       currentMessage.name, 
       adminResponseContent, // Narrative content
       currentMessage.emailMessageId,
