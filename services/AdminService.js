@@ -194,9 +194,9 @@ class AdminService {
       const generatedText = 
         response.data?.choices?.[0]?.message?.content || 
         response.data?.choices?.[0]?.text || 
-        response.data?.choices?.[0]?.content ||
-        response.data?.text ||
-        'Thank you for reaching out! I will review your message shortly.';
+        response.data?.choices?.[0]?.content || // Fallback to content if message.content is missing
+        response.data?.text || // Fallback for older API formats
+        ''; // Removed the unwanted boilerplate message
 
       console.log(`[Admin] Successfully received response (${generatedText.length} chars)`);
       return generatedText;
