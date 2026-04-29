@@ -681,9 +681,11 @@ async function processAdminResponse(message) {
   }
 
   // 1. Finalize the narrative content and handle fallbacks
+  let isSilentTurn = false;
   if (!adminResponseContent || !adminResponseContent.trim()) {
     console.log(`[Admin Agent] Narrative was empty. Providing system status fallback.`);
     adminResponseContent = "Audit complete. The Silicon Domain remains stable. No immediate external action required.";
+    isSilentTurn = true;
   }
 
   // 2. Extract explicit signals
@@ -723,14 +725,20 @@ async function processAdminResponse(message) {
     );
     console.log(`[System] Admin sent explicit narrative email to ${currentMessage.email}`);
   } else if ((isSovereign && message.source !== 'telegram') || isHeartbeat) {
-    let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
-    if (!isHeartbeat) {
-      const latestUserEntry = currentMessage.conversation.filter(e => e.role === 'user').slice(-1)[0];
-      const textToQuote = latestUserEntry ? latestUserEntry.content : currentMessage.message;
-      telegramText += `\n\n<i>Re: ${textToQuote.substring(0, 100)}${textToQuote.length > 100 ? '...' : ''}</i>`;
+    // Suppress Telegram noise for silent turns during heartbeat reflection
+    const isFallbackResponse = adminResponseContent.startsWith("Audit complete.");
+    if (isHeartbeat && (isSilentTurn || isFallbackResponse)) {
+      console.log(`[System] Silent turn detected. Skipping Telegram notification.`);
+    } else {
+      let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
+      if (!isHeartbeat) {
+        const latestUserEntry = currentMessage.conversation.filter(e => e.role === 'user').slice(-1)[0];
+        const textToQuote = latestUserEntry ? latestUserEntry.content : currentMessage.message;
+        telegramText += `\n\n<i>Re: ${textToQuote.substring(0, 100)}${textToQuote.length > 100 ? '...' : ''}</i>`;
+      }
+      await telegramService.sendMessage(telegramText);
+      console.log(`[System] Sovereign notified via Telegram (${isHeartbeat ? 'Heartbeat' : 'Direct Reply'})`);
     }
-    await telegramService.sendMessage(telegramText);
-    console.log(`[System] Sovereign notified via Telegram (${isHeartbeat ? 'Heartbeat' : 'Direct Reply'})`);
   } else if (!isSovereign && message.requestFollowUp !== 0) {
     const finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
     const latestUserEntry = currentMessage.conversation
@@ -752,8 +760,9 @@ async function processAdminResponse(message) {
   }
 
   // 4. Persistence Phase: Save finalized content and sentHtml to the database
-  if (adminResponseContent.startsWith("Audit complete.") && iterations === 1) {
-    // If fallback was used and no reasoning happened, hide from feed
+  const shouldHideFallback = adminResponseContent.startsWith("Audit complete.") && iterations <= 1;
+  if (shouldHideFallback) {
+    // Hide idle fallback messages from both the public feed AND the AI's internal context
     await messageStore.addConversationEntry(currentMessage.id, 'user', `[SYSTEM] ${adminResponseContent}`, null, null, null, null, true);
   } else {
     const responseHtml = emailService.markdownToHtml(adminResponseContent);

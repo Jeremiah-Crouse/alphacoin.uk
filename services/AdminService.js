@@ -214,7 +214,9 @@ class AdminService {
       }
 
       // Construct messages array from conversation history
-      const conversationMessages = message.conversation.map(entry => {
+      const conversationMessages = message.conversation
+        .filter(entry => !entry.hidden) // Only give the AI its actual previous thoughts/results
+        .map(entry => {
         let role = entry.role;
         let content = entry.content;
         // For user messages, prepend sender info for clarity to the AI
@@ -286,7 +288,9 @@ class AdminService {
       });
 
       // Map history to Gemini format (user -> model)
-      const contents = message.conversation.map(entry => {
+      const contents = message.conversation
+        .filter(entry => !entry.hidden) // Only give the AI its actual previous thoughts/results
+        .map(entry => {
         let role = entry.role === 'admin' ? 'model' : 'user';
         let text = entry.content;
         
