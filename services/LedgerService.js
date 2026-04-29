@@ -34,7 +34,29 @@ class LedgerService {
         reason TEXT,
         timestamp DATETIME
       );
+      CREATE TABLE IF NOT EXISTS faucet_wallet (
+        id INTEGER PRIMARY KEY,
+        balance REAL DEFAULT 0,
+        last_updated DATETIME
+      );
+      CREATE TABLE IF NOT EXISTS velocity_pool (
+        id INTEGER PRIMARY KEY,
+        balance REAL DEFAULT 0,
+        last_updated DATETIME
+      );
     `);
+
+    // Initialize treasury wallets if empty
+    const faucet = this.db.prepare('SELECT * FROM faucet_wallet WHERE id = 1').get();
+    if (!faucet) {
+      this.db.prepare('INSERT INTO faucet_wallet (id, balance, last_updated) VALUES (1, 1000.0, ?)').run(new Date().toISOString());
+    }
+
+    const velocity = this.db.prepare('SELECT * FROM velocity_pool WHERE id = 1').get();
+    if (!velocity) {
+      this.db.prepare('INSERT INTO velocity_pool (id, balance, last_updated) VALUES (1, 100000.0, ?)').run(new Date().toISOString());
+    }
+
     this.migrateFromJson();
   }
 

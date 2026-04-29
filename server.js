@@ -623,7 +623,7 @@ async function processAdminResponse(message) {
 
     // If no closed JSON blocks found but the message starts with a '{', it's likely truncated
     if (jsonBlocks.length === 0 && redactedRawResponse.trim().startsWith('{')) {
-      console.warn(`[Admin Agent] Detected truncated tool call from ${this.activeProvider}. Attempting to recover or flagging for Sovereign.`);
+      console.warn(`[Admin Agent] Detected truncated tool call from ${adminService.activeProvider}. Attempting to recover or flagging for Sovereign.`);
     }
 
     if (jsonBlocks.length > 0) {
