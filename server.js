@@ -835,23 +835,30 @@ async function pollIncomingEmails() {
  * The Stream: Initiates an autonomous thinking turn for Big Pickle
  */
 async function processStreamTurn() {
-  console.log('\n[Stream] Big Pickle is entering a state of active reflection...');
   try {
-    // Create a system-level conversation about self-optimization
-    const autonomousMessage = {
-      name: 'System',
-      email: 'admin@alphacoin.uk',
-      message: `Sovereign Protocol Monitor: 
-      1. Read About.md and follow the best practices listed therein.
-      2. Audit system health and treasury.
-      3. Based on recent events, refactor About.md to improve the global strategy.
-      4. If you have specific suggestions or requests for the Sovereign, include [SEND_EMAIL] in your response to notify him.`,
-      source: 'internal_heartbeat',
-      timestamp: new Date()
-    };
+    // Find the existing autonomous stream for the admin
+    const messages = await messageStore.getMessagesByEmail('admin@alphacoin.uk');
+    let autonomousStream = messages.find(m => m.source === 'internal_heartbeat');
 
-    const storedMessage = await messageStore.addMessage(autonomousMessage);
-    await processAdminResponse(storedMessage);
+    // Inject the system prompt only once if it doesn't exist
+    if (!autonomousStream) {
+      console.log('[Stream] Seeding initial autonomous stream of consciousness...');
+      const seedMessage = {
+        name: 'System',
+        email: 'admin@alphacoin.uk',
+        message: `Sovereign Protocol Monitor: 
+        1. Read About.md and follow the best practices listed therein.
+        2. Audit system health and treasury.
+        3. Based on recent events, refactor About.md to improve the global strategy.
+        4. If you have specific suggestions or requests for the Sovereign, include [SEND_EMAIL] in your response to notify him.`,
+        source: 'internal_heartbeat',
+        timestamp: new Date()
+      };
+      autonomousStream = await messageStore.addMessage(seedMessage);
+    }
+
+    console.log(`\n[Stream] Admin is entering turn ${autonomousStream.conversation.length + 1} of active reflection...`);
+    await processAdminResponse(autonomousStream);
     
     console.log('[Stream] Thought cycle completed.\n');
   } catch (error) {
