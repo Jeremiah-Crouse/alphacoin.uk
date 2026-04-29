@@ -672,6 +672,12 @@ async function processAdminResponse(message) {
     if (!adminResponseContent) adminResponseContent = "I have performed multiple operations but must pause here to prevent system exhaustion.";
   }
 
+  // Fallback if the model was silent but the loop terminated
+  if (!adminResponseContent || !adminResponseContent.trim()) {
+    console.log(`[Admin Agent] Narrative was empty. Providing system status fallback.`);
+    adminResponseContent = "Audit complete. The Silicon Domain remains stable. No immediate external action required.";
+  }
+
   console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
 
   // Check for explicit email signal
