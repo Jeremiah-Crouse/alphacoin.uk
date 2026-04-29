@@ -582,6 +582,12 @@ async function processAdminResponse(message) {
   let iterations = 0;
   const MAX_ITERATIONS = 10; // Reduced for stream-of-consciousness stability
 
+  // AI often fails to escape backslashes in file paths or bash commands.
+  // This sanitizes common AI JSON formatting errors before parsing.
+  const sanitizeJson = (str) => {
+    return str.replace(/\\(?!["\\\/bfnrtu]|u[0-9a-fA-F]{4})/g, '\\\\');
+  };
+
   // Helper to extract multiple JSON objects even if nested
   const extractJsonObjects = (str) => {
     const objects = [];
@@ -628,7 +634,8 @@ async function processAdminResponse(message) {
       // Execute all tools found in this turn
       for (const block of jsonBlocks) {
         try {
-          const parsedResponse = JSON.parse(block.trim());
+          const sanitizedBlock = sanitizeJson(block.trim());
+          const parsedResponse = JSON.parse(sanitizedBlock);
           if (!parsedResponse.tool) continue;
 
           const intentNarrative = parsedResponse.reason || `Admin feels a spark of recursive logic and reaches for ${parsedResponse.tool}...`;
