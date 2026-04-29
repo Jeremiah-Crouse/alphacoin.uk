@@ -171,9 +171,16 @@ function startTelegramPolling() {
  */
 telegramService.sendMessageToChat = async function(chatId, text) {
   const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
-  try {
-    await axios.post(url, { chat_id: chatId, text: text, parse_mode: 'HTML' });
-  } catch (e) { console.error('[Telegram] Reply failed:', e.message); }
+  const chunks = text.match(/[\s\S]{1,4000}/g) || [];
+  for (const chunk of chunks) {
+    try {
+      await axios.post(url, { chat_id: chatId, text: chunk, parse_mode: 'HTML' });
+    } catch (e) { 
+      try {
+        await axios.post(url, { chat_id: chatId, text: chunk });
+      } catch (inner) { console.error('[Telegram] Reply failed:', inner.message); }
+    }
+  }
 };
 
 // API: Submit a message
@@ -895,9 +902,9 @@ app.post('/api/bot/register', async (req, res) => {
     const grant = 50;
     
     try {
-        db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, endpoint, registered_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)`)
-           .run(botId, name || botId, type || 'generic-agent', status, grant, endpoint || null, new Date().toISOString());
+        db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, endpoint, manifest, registered_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+           .run(botId, name || botId, type || 'generic-agent', status, grant, endpoint || null, agentManifest ? JSON.stringify(agentManifest) : null, new Date().toISOString());
         
         // Issue onboarding grant
         if (ledgerService) {

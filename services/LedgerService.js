@@ -22,10 +22,15 @@ class LedgerService {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        passwordHash TEXT,
+        email TEXT UNIQUE NOT NULL,
+        passwordHash TEXT NOT NULL,
+        name TEXT,
+        verified INTEGER DEFAULT 0,
+        verificationToken TEXT,
+        faucetClaimed INTEGER DEFAULT 0,
+        faucetAmount REAL DEFAULT 10.0,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        faucetClaimed INTEGER DEFAULT 0
+        lastLogin DATETIME
       );
       CREATE TABLE IF NOT EXISTS ledger (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +56,7 @@ class LedgerService {
         status TEXT,
         balance REAL,
         endpoint TEXT,
+        manifest TEXT,
         registered_at DATETIME
       );
     `);

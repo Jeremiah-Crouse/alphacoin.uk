@@ -62,22 +62,30 @@ class TelegramService {
    */
   async sendMessage(text) {
     if (!this.botToken || !this.chatId) return;
+    const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+    const chunks = text.match(/[\s\S]{1,4000}/g) || [];
 
-    try {
-      const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
-      await axios.post(url, {
-        chat_id: this.chatId,
-        text: text,
-        parse_mode: 'HTML'
-      });
-      console.log('[Telegram] Message sent to Sovereign');
-    } catch (error) {
-      if (error.response && error.response.data) {
-        console.error('[Telegram] Error:', error.response.data.description);
-      } else {
-        console.error('[Telegram] Error sending message:', error.message);
+    for (const chunk of chunks) {
+      try {
+        await axios.post(url, {
+          chat_id: this.chatId,
+          text: chunk,
+          parse_mode: 'HTML'
+        });
+      } catch (error) {
+        // Fallback if HTML parsing fails (common when chunking splits tags)
+        try {
+          await axios.post(url, { chat_id: this.chatId, text: chunk });
+        } catch (retryError) {
+          if (retryError.response && retryError.response.data) {
+            console.error('[Telegram] Error:', retryError.response.data.description);
+          } else {
+            console.error('[Telegram] Error sending message:', retryError.message);
+          }
+        }
       }
     }
+    console.log('[Telegram] Message sent to Sovereign');
   }
 
   /**
