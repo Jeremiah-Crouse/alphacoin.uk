@@ -747,8 +747,9 @@ async function processAdminResponse(message) {
     );
     console.log(`[System] Admin sent explicit narrative email to ${currentMessage.email}`);
   } else if ((isSovereign && message.source !== 'telegram') || isHeartbeat) {
-    // Suppress Telegram noise for silent/meditative turns during heartbeats
-    if (isHeartbeat && isSilentTurn) {
+    // Suppress Telegram noise for silent turns or truncated hallucinations during heartbeats
+    const isRepetitive = adminResponseContent.length < 100 && iterations === 1;
+    if (isHeartbeat && (isSilentTurn || isRepetitive)) {
       console.log(`[System] Silent turn detected. Skipping Telegram notification.`);
     } else {
       let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
@@ -779,9 +780,10 @@ async function processAdminResponse(message) {
   }
 
   // 4. Persistence Phase
-  // Mark idle meditations as hidden to keep both the AI and the Feed focused on actual events
-  if (isSilentTurn && iterations <= 1) {
-    await messageStore.addConversationEntry(currentMessage.id, 'user', `[MEDITATION] ${adminResponseContent}`, null, null, null, null, true);
+  // Mark idle meditations or truncated hallucinations as hidden to prevent feedback loops
+  const shouldHide = (isSilentTurn && iterations <= 1) || (adminResponseContent.length < 100 && iterations === 1);
+  if (shouldHide) {
+    await messageStore.addConversationEntry(currentMessage.id, 'user', `[REFLECTION] ${adminResponseContent}`, null, null, null, null, true);
   } else {
     const responseHtml = emailService.markdownToHtml(adminResponseContent);
     await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
