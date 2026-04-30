@@ -3,7 +3,7 @@
  * Handles email sending via Brevo and reading from Gmail
  */
 
-const Brevo = require('@getbrevo/brevo');
+const { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } = require('@getbrevo/brevo');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
@@ -26,8 +26,8 @@ class EmailService {
       return;
     }
 
-    this.brevoClient = new Brevo.TransactionalEmailsApi();
-    this.brevoClient.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, this.brevoApiKey);
+    this.brevoClient = new TransactionalEmailsApi();
+    this.brevoClient.setApiKey(TransactionalEmailsApiApiKeys.apiKey, this.brevoApiKey);
     console.log('Brevo email service initialized');
   }
 
