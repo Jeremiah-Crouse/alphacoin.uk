@@ -26,10 +26,16 @@ class EmailService {
       return;
     }
 
-    // v5.x uses BrevoClient
-    const { BrevoClient } = BrevoModule.default || BrevoModule;
-    this.brevo = new BrevoClient({ apiKey: this.brevoApiKey });
-    
+    // Get the Brevo module properly for CJS/ESM compatibility
+    const Brevo = BrevoModule.default || BrevoModule;
+
+    // Create API client and set API key
+    const apiClient = new Brevo.ApiClient();
+    apiClient.authentications['api-key'].apiKey = this.brevoApiKey;
+
+    // Create TransactionalEmailsApi instance
+    this.transactionalEmailsApi = new Brevo.TransactionalEmailsApi(apiClient);
+
     console.log('Brevo email service initialized');
   }
 
@@ -145,7 +151,7 @@ class EmailService {
    */
   async sendContactConfirmation(toEmail, userName) {
     try {
-      if (!this.brevo) {
+      if (!this.transactionalEmailsApi) {
         console.warn('Brevo not configured, skipping confirmation email');
         return;
       }
@@ -157,7 +163,7 @@ class EmailService {
         <p>Best regards,<br>Admin</p>
       `;
 
-      await this.brevo.transactionalEmails.sendTransacEmail({
+      await this.transactionalEmailsApi.sendTransacEmail({
         sender: { email: 'admin@alphacoin.uk', name: 'Admin' },
         to: [{ email: toEmail, name: userName }],
         subject: 'Message Received - alphacoin.uk',
@@ -177,7 +183,7 @@ class EmailService {
    */
   async sendAdminResponse(toEmail, userName, responseMarkdown, inReplyToId = null, subject = null, originalMessage = null) {
     try {
-      if (!this.brevo) {
+      if (!this.transactionalEmailsApi) {
         console.warn('Brevo not configured, skipping response email');
         return;
       }
@@ -241,7 +247,7 @@ class EmailService {
         };
       }
 
-      await this.brevo.transactionalEmails.sendTransacEmail(emailPayload);
+      await this.transactionalEmailsApi.sendTransacEmail(emailPayload);
 
       console.log(`Response email sent to ${toEmail}`);
       return fullHtmlContent;
@@ -256,7 +262,7 @@ class EmailService {
    */
   async sendVerificationEmail(toEmail, userName, verifyUrl) {
     try {
-      if (!this.brevo) {
+      if (!this.transactionalEmailsApi) {
         console.warn('Brevo not configured, skipping verification email');
         return;
       }
@@ -273,7 +279,7 @@ class EmailService {
         </div>
       `;
 
-      await this.brevo.transactionalEmails.sendTransacEmail({
+      await this.transactionalEmailsApi.sendTransacEmail({
         sender: { email: 'admin@alphacoin.uk', name: 'Alphacoin' },
         to: [{ email: toEmail, name: userName }],
         subject: 'Verify Your Alphacoin Account',
@@ -293,7 +299,7 @@ class EmailService {
    */
   async sendWelcomeEmail(toEmail, userName) {
     try {
-      if (!this.brevo) {
+      if (!this.transactionalEmailsApi) {
         console.warn('Brevo not configured, skipping welcome email');
         return;
       }
@@ -313,7 +319,7 @@ class EmailService {
         </div>
       `;
 
-      await this.brevo.transactionalEmails.sendTransacEmail({
+      await this.transactionalEmailsApi.sendTransacEmail({
         sender: { email: 'admin@alphacoin.uk', name: 'Alphacoin' },
         to: [{ email: toEmail, name: userName }],
         subject: 'Welcome to Alphacoin - Claim Your 10 AC!',
