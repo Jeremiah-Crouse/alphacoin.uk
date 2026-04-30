@@ -15,7 +15,7 @@ const UserStore = require('./services/UserStore'); // User onboarding infrastruc
 const TelegramService = require('./services/TelegramService');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8003;
 const FAUCET_AMOUNT = 25; // Standard faucet allocation
 
 // Middleware
@@ -881,7 +881,7 @@ async function processStreamTurn() {
       const seedMessage = {
         name: 'Alphacoin',
         email: 'admin@alphacoin.uk',
-        message: '🥇', 
+        message: '', 
         source: 'internal_heartbeat',
         timestamp: new Date()
       };
