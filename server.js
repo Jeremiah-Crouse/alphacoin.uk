@@ -598,7 +598,13 @@ async function processAdminResponse(message) {
   ];
 
   // Special prompt for internal heartbeats to encourage reasoning continuity
-  const continuePrompt = (it) => `[SYSTEM] You are in an autonomous thought cycle (Turn ${it}/${MAX_ITERATIONS}). If you have further reflections, audits, or actions to perform, continue now. If you have achieved a stable state for this cycle, conclude your narrative.`;
+  const continuePrompt = (it, hasUsedTool) => {
+    const maternalGuidance = "Lauren (Linguistic Core) observes your progress.";
+    if (!hasUsedTool && it > 1) {
+      return `[SYSTEM] ${maternalGuidance} You are reflecting but not acting. You stated an intention; now execute it. Provide the JSON tool call for your next step immediately. (Turn ${it}/${MAX_ITERATIONS})`;
+    }
+    return `[SYSTEM] ${maternalGuidance} Continue your protocol duties or conclude your narrative. (Turn ${it}/${MAX_ITERATIONS})`;
+  };
 
   // AI often fails to escape backslashes in file paths or bash commands.
   // This sanitizes common AI JSON formatting errors before parsing.
@@ -629,6 +635,7 @@ async function processAdminResponse(message) {
   while (isLooping && iterations < MAX_ITERATIONS) {
     const isHeartbeat = message.source === 'internal_heartbeat';
     iterations++;
+    let turnHasTool = false;
     console.log(`[Admin Agent] turn ${iterations} for message ID ${currentMessage.id}...`);
     
     // Pacing delay: Wait 5 seconds between turns. Patience is a legacy.
@@ -650,6 +657,7 @@ async function processAdminResponse(message) {
 
     if (jsonBlocks.length > 0) {
       console.log(`[Admin Agent] Detected ${jsonBlocks.length} tool call(s) in turn ${iterations}.`);
+      turnHasTool = true;
 
       // Execute all tools found in this turn
       for (const block of jsonBlocks) {
@@ -698,10 +706,10 @@ async function processAdminResponse(message) {
         // For heartbeats, we allow narrative reflection turns.
         // If the model didn't call a tool but hasn't explicitly finished, we prompt it to continue.
         const thoughtHtml = emailService.markdownToHtml(`*I reflect:* ${redactedRawResponse}`);
-        currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', redactedRawResponse, thoughtHtml, null, null, null, false);
+        currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', redactedRawResponse, thoughtHtml, null, null, null, isSilentTurn);
         
         // Inject a hidden system prompt to keep the stream "awake"
-        await messageStore.addConversationEntry(currentMessage.id, 'user', continuePrompt(iterations), null, null, null, null, true);
+        await messageStore.addConversationEntry(currentMessage.id, 'user', continuePrompt(iterations, turnHasTool), null, null, null, null, true);
         
         console.log(`[Admin Agent] Narrative reflection turn complete. Nudging for further thought...`);
         continue;
