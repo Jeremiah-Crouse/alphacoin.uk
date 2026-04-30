@@ -167,6 +167,23 @@ class MessageStore {
     return { messages, hasMore };
   }
 
+  async getFeed(limit = 20, beforeId = null) {
+    let query = `
+      SELECT ce.*, m.name, m.email, m.source as messageSource, m.subject
+      FROM conversation_entries ce
+      JOIN messages m ON ce.message_id = m.id
+      WHERE ce.hidden = 0
+    `;
+    let params = [];
+    if (beforeId) {
+      query += ' AND ce.id < ?';
+      params.push(beforeId);
+    }
+    query += ' ORDER BY ce.id DESC LIMIT ?';
+    params.push(limit);
+    return this.db.prepare(query).all(...params);
+  }
+
   getConversationEntries(messageId) {
     const entries = this.db.prepare('SELECT * FROM conversation_entries WHERE message_id = ? ORDER BY timestamp ASC').all(messageId);
     return entries.map(e => ({ ...e, hidden: !!e.hidden }));

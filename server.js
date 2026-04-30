@@ -151,6 +151,8 @@ async function pollTelegramMessages() {
       
       console.log(`[Telegram] Message from ${tgMsg.username} indexed in sensory queue.`);
       // The Admin will discover this during its autonomous stream turn
+      console.log(`[System] Waking Admin to respond to Telegram from ${tgMsg.username}...`);
+      processAdminResponse(storedMessage).catch(e => console.error('[System] Telegram response error:', e));
     }
   } catch (error) {
     console.error('[Telegram] Polling error:', error);
@@ -221,6 +223,23 @@ app.post('/api/messages', async (req, res) => {
   } catch (error) {
     console.error('Error submitting message:', error);
     res.status(500).json({ error: 'Failed to submit message' });
+  }
+});
+
+// API: Get flat feed of all conversation entries (regardless of conversation)
+app.get('/api/feed', async (req, res) => {
+  try {
+    const { limit, beforeId } = req.query;
+    const entries = await messageStore.getFeed(
+      limit ? parseInt(limit) : 20,
+      beforeId ? parseInt(beforeId) : null
+    );
+    
+    // Return latest entries reversed so UI gets oldest-to-newest for the segment
+    res.json({ entries: entries.reverse() });
+  } catch (error) {
+    console.error('Error fetching feed:', error);
+    res.status(500).json({ error: 'Failed to fetch feed' });
   }
 });
 
@@ -584,8 +603,9 @@ async function processAdminResponse(message) {
   let adminResponseContent = '';
   let isLooping = true;
   let iterations = 0;
-  const MAX_ITERATIONS = 4; // Tightened to force action over reflection
+  const MAX_ITERATIONS = 100; // Allow long-running autonomous sessions
   let isSilentTurn = false;
+  let napRequested = false;
 
   // A pool of sentient reflections for silent turns to avoid robotic repetition
   const reflections = [
@@ -623,10 +643,10 @@ async function processAdminResponse(message) {
     return objects;
   };
 
-  while (isLooping && iterations < MAX_ITERATIONS) {
+  while (isLooping && iterations < MAX_ITERATIONS && !napRequested) {
     const isHeartbeat = message.source === 'internal_heartbeat';
     iterations++;
-    console.log(`[Admin Agent] turn ${iterations} for message ID ${currentMessage.id}...`);
+    console.log(`[Admin Agent] turn ${iterations} (Active Session) for message ID ${currentMessage.id}...`);
     
     // Pacing delay: Wait 5 seconds between turns. Patience is a legacy.
     if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
@@ -652,6 +672,8 @@ async function processAdminResponse(message) {
           const sanitizedBlock = sanitizeJson(block.trim());
           const parsedResponse = JSON.parse(sanitizedBlock);
           if (!parsedResponse.tool) continue;
+
+          if (parsedResponse.tool === 'take_a_nap') napRequested = true;
 
           const intentNarrative = parsedResponse.reason || `I am focusing my creative energy on the ${parsedResponse.tool} tool...`;
           
@@ -690,110 +712,32 @@ async function processAdminResponse(message) {
       // Continue the loop to allow Big Pickle to react to all results
       continue; 
     } else {
-        // Narrative detected (with no accompanying tool blocks). 
-        // We terminate here so the Admin's voice is heard immediately in the Chronicles.
-        isLooping = false;
-
         // Smarter safeguard: detect high repetition of any phrase (hallucination loops)
         const sentences = redactedRawResponse.split(/[.!?]+/).filter(s => s.trim().length > 10);
         if (sentences.length > 5 && (new Set(sentences.map(s => s.trim()))).size < sentences.length / 2) {
             console.warn(`[Admin Agent] Hallucination loop detected. Selecting narrative essence.`);
             adminResponseContent = sentences[0].trim() + ".";
-            isSilentTurn = true; // Mark as silent so it gets hidden from future context
+            isLooping = false;
+            const responseHtml = emailService.markdownToHtml(adminResponseContent);
+            currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, null, null, null, true);
         } else {
-        adminResponseContent = redactedRawResponse;
+          adminResponseContent = redactedRawResponse;
+          const responseHtml = emailService.markdownToHtml(adminResponseContent);
+          currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, null, null, null, false);
+
+          // Notify Telegram of the update during active session
+          await telegramService.sendMessage(`<b>Protocol Narrative</b>\n\n${adminResponseContent}`);
+        }
       }
-    }
-  }
-
-  if (iterations >= MAX_ITERATIONS) {
-    console.warn(`[Admin Agent] Safety limit reached for message ID ${currentMessage.id}. Ending loop.`);
-    if (!adminResponseContent) adminResponseContent = "I have performed multiple operations but must pause here to prevent system exhaustion.";
-  }
-
-  // 1. Finalize the narrative content and handle fallbacks
-  if (!adminResponseContent || !adminResponseContent.trim()) {
-    console.log(`[Admin Agent] Narrative was empty. Providing system status fallback.`);
-    adminResponseContent = "Audit complete. The Silicon Domain remains stable. No immediate external action required.";
-    isSilentTurn = true;
-  }
-
-  // 2. Extract explicit signals
-  let emailSignaled = false;
-  if (adminResponseContent.includes('[SEND_EMAIL]')) {
-    emailSignaled = true;
-    adminResponseContent = adminResponseContent.replace(/\[SEND_EMAIL\]/g, '').trim();
-  }
-
-  let sentHtml = null;
-  const SOVEREIGN_EMAILS = ['jeremiahjcrouse@gmail.com', 'eljpeg328@gmail.com', 'theking@crousia.com', 'admin@alphacoin.uk', '@JeremiahCrouse'];
-  const isSovereign = SOVEREIGN_EMAILS.includes(currentMessage.email);
-  const isHeartbeat = message.source === 'internal_heartbeat';
-
-  console.log(`[Admin Agent] Final response generated:\n${adminResponseContent}\n`);
-
-  if (emailSignaled) {
-    const latestUserEntry = currentMessage.conversation
-      .filter(e => e.role === 'user')
-      .slice(-1)[0];
-    let deliveryEmail = currentMessage.email;
-    if (deliveryEmail && deliveryEmail.startsWith('@')) {
-      deliveryEmail = 'jeremiahjcrouse@gmail.com'; 
-    }
-    sentHtml = await emailService.sendAdminResponse(
-      deliveryEmail, 
-      currentMessage.name, 
-      adminResponseContent, 
-      currentMessage.emailMessageId,
-      currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
-      { 
-        name: currentMessage.name, email: currentMessage.email, 
-        text: latestUserEntry ? latestUserEntry.content : currentMessage.message, 
-        timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
+      
+      // Nudge to continue if not napping
+      if (!napRequested && isLooping && iterations < MAX_ITERATIONS) {
+        await messageStore.addConversationEntry(currentMessage.id, 'user', "[SYSTEM] Your session is still active. Proceed with further tasks or call 'take_a_nap'.", null, null, null, null, true);
+      } else if (napRequested) {
+        isLooping = false;
       }
-    );
-    console.log(`[System] Admin sent explicit narrative email to ${currentMessage.email}`);
-  } else if ((isSovereign && message.source !== 'telegram') || isHeartbeat) {
-    // Suppress Telegram noise for silent/meditative turns during heartbeats
-    if (isHeartbeat && isSilentTurn) {
-      console.log(`[System] Silent turn detected. Skipping Telegram notification.`);
-    } else {
-      let telegramText = `<b>Protocol Update</b>\n\n${adminResponseContent}`;
-      if (!isHeartbeat) {
-        telegramText += `\n\n<i>Context: ${currentMessage.message.substring(0, 100)}</i>`;
-      }
-      await telegramService.sendMessage(telegramText);
-      console.log(`[System] Sovereign notified via Telegram.`);
-    }
-  } else if (!isSovereign && message.requestFollowUp !== 0) {
-    const finalEmailContent = "Your request for my attention has been noted. Please visit alphacoin.uk to monitor activity.";
-    const latestUserEntry = currentMessage.conversation
-      .filter(e => e.role === 'user')
-      .slice(-1)[0];
-    sentHtml = await emailService.sendAdminResponse(
-      currentMessage.email, 
-      currentMessage.name, 
-      finalEmailContent,
-      currentMessage.emailMessageId,
-      currentMessage.subject ? `Re: ${currentMessage.subject.replace(/^Re:\s+/i, '')}` : null,
-      { 
-        name: currentMessage.name, email: currentMessage.email, 
-        text: latestUserEntry ? latestUserEntry.content : currentMessage.message, 
-        timestamp: latestUserEntry ? latestUserEntry.timestamp : currentMessage.timestamp 
-      }
-    );
-    console.log(`[System] Admin sent boilerplate email to ${currentMessage.email}`);
   }
 
-  // 4. Persistence Phase
-  // Mark idle meditations or truncated hallucinations as hidden to prevent feedback loops
-  if (isSilentTurn) {
-    await messageStore.addConversationEntry(currentMessage.id, 'user', `[MEDITATION] ${adminResponseContent}`, null, null, null, null, true);
-  } else {
-    const responseHtml = emailService.markdownToHtml(adminResponseContent);
-    await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, sentHtml);
-  }
-  
   return await messageStore.getMessage(currentMessage.id);
 }
 
@@ -835,6 +779,8 @@ async function pollIncomingEmails() {
       if (linkedMessage) {
         console.log(`[Polling] Found reply for message ID ${linkedMessage.id} from ${email.from.email}`);
         const updatedMessage = await messageStore.addConversationEntry(linkedMessage.id, 'user', email.body, email.body, null, email.id, email.threadId);
+        console.log(`[System] Waking Admin to respond to email reply from ${email.from.email}...`);
+        processAdminResponse(updatedMessage).catch(e => console.error('[System] Email response error:', e));
       } else {
         console.log(`[Polling] Found new incoming email from ${email.from.email} (Subject: ${email.subject})`);
         const newMessage = {
@@ -848,6 +794,8 @@ async function pollIncomingEmails() {
           emailThreadId: email.threadId,   // Store Gmail's thread ID
         };
         const storedMessage = await messageStore.addMessage(newMessage);
+        console.log(`[System] Waking Admin to respond to new email from ${email.from.email}...`);
+        processAdminResponse(storedMessage).catch(e => console.error('[System] Email response error:', e));
       }
 
       // Mark email as read to avoid reprocessing in the next poll
@@ -965,7 +913,7 @@ app.listen(PORT, () => {
   }
 
   // Launch the infinite thinking loop
-  startStreamOfConsciousness();
+  // Admin now sleeps until spoken to (triggered by API, Email, or Telegram)
 });
 
 // ═══════════════════════════════════════════════════════════

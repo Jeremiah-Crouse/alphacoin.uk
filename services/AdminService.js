@@ -597,6 +597,9 @@ class AdminService {
       case 'web_search':
         result = await this.webSearch(parameters.query);
         break;
+      case 'take_a_nap':
+        result = "Nap sequence initiated. Admin is entering standby mode. Peace be upon the Alpha.";
+        break;
       default:
         result = `Error: Unknown tool: ${toolName}`;
     }
