@@ -686,10 +686,12 @@ async function processAdminResponse(message) {
     if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
 
     let rawResponse;
+    let isOverrideTurn = false;
     // SOVEREIGN OVERRIDE: If the first turn comes from Admin and contains tool code, bypass the model
     if (iterations === 1 && message.email === 'admin@alphacoin.uk' && extractJsonObjects(message.message).length > 0) {
       console.log(`[Admin Agent] Sovereign Override detected for Turn 1. Executing direct directive...`);
       rawResponse = message.message;
+      isOverrideTurn = true;
     } else {
       console.log(`[Admin Agent] Reasoning via ${adminService.activeProvider}...`);
       rawResponse = await adminService.generateResponse(currentMessage);
@@ -717,7 +719,10 @@ async function processAdminResponse(message) {
 
           if (parsedResponse.tool === 'take_a_nap') napRequested = true;
 
-          const intentNarrative = parsedResponse.reason || `I am focusing my creative energy on the ${parsedResponse.tool} tool...`;
+          // In an override turn, we don't need to re-state the intent narrative as the command is already public
+          const intentNarrative = isOverrideTurn 
+            ? `Executing Sovereign Directive: ${parsedResponse.tool}`
+            : (parsedResponse.reason || `I am focusing my creative energy on the ${parsedResponse.tool} tool...`);
           
           // Record the "Intent" as a conscious thought in the Chronicles
           currentMessage = await messageStore.addConversationEntry(

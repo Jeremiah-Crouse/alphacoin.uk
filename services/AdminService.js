@@ -221,7 +221,11 @@ class AdminService {
         let content = entry.content;
         // For user messages, prepend sender info for clarity to the AI
         if (role === 'user') {
-          content = `From ${message.name} (${message.email}):\n\n${content}`;
+          if (message.email === 'admin@alphacoin.uk') {
+            content = `SOVEREIGN DIRECTIVE (INTERNAL):\n\n${content}`;
+          } else {
+            content = `From ${message.name} (${message.email}):\n\n${content}`;
+          }
         }
         if (role === 'admin' && (content.startsWith('[INTERNAL_RESULT]') || content.startsWith('[SENSORY_DATA]'))) {
           // Identify tool results stored under 'admin' and map back to 'user' for the AI
@@ -295,7 +299,11 @@ class AdminService {
         let text = entry.content;
         
         if (entry.role === 'user') {
-          text = `From ${message.name} (${message.email}):\n\n${text}`;
+          if (message.email === 'admin@alphacoin.uk') {
+            text = `SOVEREIGN DIRECTIVE (INTERNAL):\n\n${text}`;
+          } else {
+            text = `From ${message.name} (${message.email}):\n\n${text}`;
+          }
         }
         if (entry.role === 'admin' && (text.startsWith('[INTERNAL_RESULT]') || text.startsWith('[SENSORY_DATA]'))) {
           text = `TOOL OUTPUT:\n${text.replace('[INTERNAL_RESULT]', '').replace('[SENSORY_DATA]', '').trim()}`;
