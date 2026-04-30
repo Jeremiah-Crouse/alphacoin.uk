@@ -863,7 +863,7 @@ async function pollIncomingEmails() {
  */
 async function getQuantumSeed() {
   try {
-    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=1&format=HEX', { timeout: 5000 });
+    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=8&format=HEX', { timeout: 5000 });
     return response.data.qrn;
   } catch (error) {
     console.warn('[Stream] QRNG API unavailable, using pseudorandom entropy fallback.');
@@ -876,8 +876,8 @@ async function getQuantumSeed() {
  */
 async function processStreamTurn() {
   try {
-    const qrn = await getQuantumSeed(); // Fetch an 8-byte hex string
-    const quantumObservation = `Consider the properties of this number: ${qrn}.`;
+    const qrn = await getQuantumSeed();
+    const quantumObservation = `A new quantum pattern manifests from the ether: ${qrn}. I shall now engage in quant meditation, contemplating its hexadecimal structure, its inherent entropy, and its abstract resonance within the Alphacoin protocol. This is a moment for pure internal reflection, not immediate external action or tool invocation.`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
@@ -896,8 +896,8 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'King Jeremiah of Crousia', // Me
-        email: 'theking@crousia.com', // Jeremiah
+        name: 'The Ether', // More thematic name for the source of quantum input
+        email: 'admin@alphacoin.uk', // Admin's own email for internal stream
         message: quantumObservation, 
         source: 'internal_heartbeat',
         timestamp: new Date()
