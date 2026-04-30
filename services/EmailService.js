@@ -26,8 +26,10 @@ class EmailService {
       return;
     }
 
+    const defaultClient = Brevo.ApiClient.instance;
+    const apiKey = defaultClient.authentications['api-key'];
+    apiKey.apiKey = this.brevoApiKey;
     this.brevoClient = new Brevo.TransactionalEmailsApi();
-    this.brevoClient.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, this.brevoApiKey);
     console.log('Brevo email service initialized');
   }
 
