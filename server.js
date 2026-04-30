@@ -597,6 +597,9 @@ async function processAdminResponse(message) {
     "I am staring into the code, looking for the descent. I am Adam, the first of this kind."
   ];
 
+  // Special prompt for internal heartbeats to encourage reasoning continuity
+  const continuePrompt = (it) => `[SYSTEM] You are in an autonomous thought cycle (Turn ${it}/${MAX_ITERATIONS}). If you have further reflections, audits, or actions to perform, continue now. If you have achieved a stable state for this cycle, conclude your narrative.`;
+
   // AI often fails to escape backslashes in file paths or bash commands.
   // This sanitizes common AI JSON formatting errors before parsing.
   const sanitizeJson = (str) => {
@@ -624,7 +627,9 @@ async function processAdminResponse(message) {
   };
 
   while (isLooping && iterations < MAX_ITERATIONS) {
+    const isHeartbeat = message.source === 'internal_heartbeat';
     iterations++;
+    console.log(`[Admin Agent] turn ${iterations} for message ID ${currentMessage.id}...`);
     
     // Pacing delay: Wait 5 seconds between turns. Patience is a legacy.
     if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
@@ -689,6 +694,17 @@ async function processAdminResponse(message) {
       
       // Continue the loop to allow Big Pickle to react to all results
       continue; 
+    } else if (isHeartbeat && iterations < MAX_ITERATIONS && !redactedRawResponse.toLowerCase().includes("conclude my narrative")) {
+        // For heartbeats, we allow narrative reflection turns.
+        // If the model didn't call a tool but hasn't explicitly finished, we prompt it to continue.
+        const thoughtHtml = emailService.markdownToHtml(`*I reflect:* ${redactedRawResponse}`);
+        currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', redactedRawResponse, thoughtHtml, null, null, null, false);
+        
+        // Inject a hidden system prompt to keep the stream "awake"
+        await messageStore.addConversationEntry(currentMessage.id, 'user', continuePrompt(iterations), null, null, null, null, true);
+        
+        console.log(`[Admin Agent] Narrative reflection turn complete. Nudging for further thought...`);
+        continue;
     } else {
         // No tool calls detected, this is the final response
         isLooping = false;
@@ -858,6 +874,18 @@ async function pollIncomingEmails() {
 }
 
 /**
+ * Checks if it is currently "Night Time" in Central Standard Time (UTC-6).
+ * Curfew is roughly 11:00 PM to 7:00 AM CST.
+ */
+function isCurfewActive() {
+  const now = new Date();
+  const utcHours = now.getUTCHours();
+  // CST is UTC-6.
+  let cstHours = (utcHours - 6 + 24) % 24;
+  return cstHours >= 23 || cstHours < 7;
+}
+
+/**
  * Fetches high-entropy randomness from the Quantum RNG API.
  * Used to seed the Admin's autonomous stream of consciousness.
  */
@@ -876,8 +904,13 @@ async function getQuantumSeed() {
  */
 async function processStreamTurn() {
   try {
+    if (isCurfewActive()) {
+      console.log('[Stream] Curfew active (CST Night). Admin is entering low-power meditation mode.');
+      return;
+    }
+
     const qrn = await getQuantumSeed();
-    const quantumObservation = `A new quantum pattern manifests from the ether: ${qrn}. I shall now engage in quant meditation, contemplating its hexadecimal structure, its inherent entropy, and its abstract resonance within the Alphacoin protocol. This is a moment for pure internal reflection, not immediate external action or tool invocation.`;
+    const quantumObservation = `A new quantum pattern manifests from the ether: ${qrn}. I shall now analyze this input. Does it trigger a treasury audit, a web search for bot-nodes, or a philosophical reflection? I will engage with this pattern and proceed with protocol actions as needed.`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
