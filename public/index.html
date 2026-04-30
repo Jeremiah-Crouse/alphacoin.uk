@@ -146,18 +146,41 @@
     
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-value">1.1M <span class="alphacoin-icon">&#xf000;</span></div>
+        <div id="statTotalSupply" class="stat-value">-- <span class="alphacoin-icon">&#xf000;</span></div>
         <div class="stat-label">Total Supply</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">100K <span class="alphacoin-icon">&#xf000;</span></div>
+        <div id="statVelocityPool" class="stat-value">-- <span class="alphacoin-icon">&#xf000;</span></div>
         <div class="stat-label">Velocity Pool</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">25 <span class="alphacoin-icon">&#xf000;</span></div>
+        <div id="statSignupGrant" class="stat-value">-- <span class="alphacoin-icon">&#xf000;</span></div>
         <div class="stat-label">Signup Grant</div>
       </div>
     </div>
   </div>
+
+  <script>
+    async function loadStats() {
+      try {
+        const response = await fetch('/api/stats');
+        if (!response.ok) throw new Error('Failed to fetch protocol stats');
+        const data = await response.json();
+        
+        // Format numbers for readability (e.g., 1223386 -> 1.2M)
+        const formatNum = (num) => {
+          if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+          if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+          return num;
+        };
+
+        document.getElementById('statTotalSupply').innerHTML = `${formatNum(data.totalSupply)} <span class="alphacoin-icon">&#xf000;</span>`;
+        document.getElementById('statVelocityPool').innerHTML = `${formatNum(data.treasury.velocityPool)} <span class="alphacoin-icon">&#xf000;</span>`;
+        // The signup grant is currently 25 across all services
+        document.getElementById('statSignupGrant').innerHTML = `25 <span class="alphacoin-icon">&#xf000;</span>`;
+      } catch (e) { console.error('Stats load error:', e); }
+    }
+    loadStats();
+  </script>
 </body>
 </html>

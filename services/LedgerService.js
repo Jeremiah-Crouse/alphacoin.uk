@@ -28,7 +28,7 @@ class LedgerService {
         verified INTEGER DEFAULT 0,
         verificationToken TEXT,
         faucetClaimed INTEGER DEFAULT 0,
-        faucetAmount REAL DEFAULT 10.0,
+        faucetAmount REAL DEFAULT 25.0,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         lastLogin DATETIME
       );

@@ -16,6 +16,7 @@ const TelegramService = require('./services/TelegramService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const FAUCET_AMOUNT = 25; // Standard faucet allocation
 
 // Middleware
 app.use(cors());
@@ -478,8 +479,8 @@ app.post('/api/faucet/claim', async (req, res) => {
     
     // Issue coins to user in ledger (drawn from faucet wallet)
     const tx = await ledgerService.issueCoins(
-      email, 
-      25, 
+      email,
+      FAUCET_AMOUNT,
       `Faucet Claim - Welcome to Alphacoin Protocol`,
       'faucet'
     );
@@ -516,6 +517,7 @@ app.get('/api/dashboard/:email', async (req, res) => {
     
     const balance = await ledgerService.getUserBalance(email);
     const faucetStats = userStore.getFaucetStats();
+    const faucetRemaining = await ledgerService.getFaucetWalletBalance();
     
     res.json({
       user: {
@@ -532,7 +534,7 @@ app.get('/api/dashboard/:email', async (req, res) => {
       },
       protocolStats: {
         totalUsers: userStore.getUserCount(),
-        faucetRemaining: faucetStats.remaining,
+        faucetRemaining: faucetRemaining,
         totalSupply: await ledgerService.getTotalSupply()
       }
     });
@@ -548,18 +550,20 @@ app.get('/api/stats', async (req, res) => {
     const faucetStats = userStore.getFaucetStats();
     const totalSupply = await ledgerService.getTotalSupply();
     const userCount = userStore.getUserCount();
+    const faucetBalance = await ledgerService.getFaucetWalletBalance();
+    const velocityBalance = await ledgerService.getVelocityPoolBalance();
     
     res.json({
       totalSupply,
       totalUsers: userCount,
       faucet: {
         totalAllocated: faucetStats.totalAllocated,
-        remaining: faucetStats.remaining,
+        remaining: faucetBalance,
         usersClaimed: faucetStats.usersClaimed
       },
       treasury: {
         genesis: 1000000,
-        velocityPool: 100000,
+        velocityPool: velocityBalance,
         strategicReserve: 900000
       }
     });

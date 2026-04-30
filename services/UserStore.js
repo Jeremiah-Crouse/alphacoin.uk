@@ -27,7 +27,7 @@ class UserStore {
         verified INTEGER DEFAULT 0,
         verificationToken TEXT,
         faucetClaimed INTEGER DEFAULT 0,
-        faucetAmount REAL DEFAULT 10.0,
+        faucetAmount REAL DEFAULT 25.0,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         lastLogin DATETIME
       );
@@ -144,10 +144,10 @@ class UserStore {
     this.db.prepare('UPDATE users SET faucetClaimed = 1 WHERE id = ?').run(user.id);
 
     // Update faucet reserve tracking
-    const newTotal = this.db.prepare('SELECT total_allocated FROM faucet_reserve WHERE id = 1').get().total_allocated + 10;
+    const newTotal = this.db.prepare('SELECT total_allocated FROM faucet_reserve WHERE id = 1').get().total_allocated + 25;
     this.db.prepare('UPDATE faucet_reserve SET total_allocated = ?, last_updated = ? WHERE id = 1').run(newTotal, new Date().toISOString());
 
-    return { email: user.email, amount: 10, faucetClaimed: true };
+    return { email: user.email, amount: 25, faucetClaimed: true };
   }
 
   getFaucetStats() {
@@ -157,7 +157,6 @@ class UserStore {
     
     return {
       totalAllocated,
-      remaining: 1000 - totalAllocated,
       totalUsers: users ? users.total : 0,
       usersClaimed: users ? users.claimed : 0
     };

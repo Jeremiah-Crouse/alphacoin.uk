@@ -302,7 +302,7 @@ class EmailService {
           <h1 style="color: #1a1a2e;">Email Verified!</h1>
           <p style="color: #333; font-size: 18px;">Welcome to Alphacoin, ${userName}!</p>
           <div style="background: #e8f5e9; padding: 20px; border-radius: 12px; margin: 20px 0;">
-            <h2 style="color: #4CAF50; margin: 0;">🎉 You Earned 10 AC</h2>
+            <h2 style="color: #4CAF50; margin: 0;">🎉 You Earned 25 AC</h2>
             <p style="color: #333; margin: 10px 0 0 0;">Your faucet claim is ready!</p>
           </div>
           <p style="color: #333;">Visit your dashboard to claim your Alphacoins and start participating in the protocol.</p>
