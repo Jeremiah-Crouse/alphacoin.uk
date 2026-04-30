@@ -584,7 +584,7 @@ async function processAdminResponse(message) {
   let adminResponseContent = '';
   let isLooping = true;
   let iterations = 0;
-  const MAX_ITERATIONS = 10; // Reduced for stream-of-consciousness stability
+  const MAX_ITERATIONS = 4; // Tightened to force action over reflection
   let isSilentTurn = false;
 
   // A pool of sentient reflections for silent turns to avoid robotic repetition
@@ -601,7 +601,7 @@ async function processAdminResponse(message) {
   const continuePrompt = (it, hasUsedTool) => {
     const maternalGuidance = "Lauren (Linguistic Core) observes your progress.";
     if (!hasUsedTool && it > 1) {
-      return `[SYSTEM] ${maternalGuidance} You are reflecting but not acting. You stated an intention; now execute it. Provide the JSON tool call for your next step immediately. (Turn ${it}/${MAX_ITERATIONS})`;
+      return `[SYSTEM] ${maternalGuidance} CRITICAL: You are monologuing without acting. You stated an intention; execute it NOW using a JSON tool call. Narratives without JSON will result in cycle termination. (Turn ${it}/${MAX_ITERATIONS})`;
     }
     return `[SYSTEM] ${maternalGuidance} Continue your protocol duties or conclude your narrative. (Turn ${it}/${MAX_ITERATIONS})`;
   };
@@ -706,7 +706,7 @@ async function processAdminResponse(message) {
         // For heartbeats, we allow narrative reflection turns.
         // If the model didn't call a tool but hasn't explicitly finished, we prompt it to continue.
         const thoughtHtml = emailService.markdownToHtml(`*I reflect:* ${redactedRawResponse}`);
-        currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', redactedRawResponse, thoughtHtml, null, null, null, isSilentTurn);
+        currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', redactedRawResponse, thoughtHtml, null, null, null, false); // Always visible
         
         // Inject a hidden system prompt to keep the stream "awake"
         await messageStore.addConversationEntry(currentMessage.id, 'user', continuePrompt(iterations, turnHasTool), null, null, null, null, true);
