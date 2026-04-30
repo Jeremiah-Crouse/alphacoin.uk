@@ -876,8 +876,8 @@ async function getQuantumSeed() {
  */
 async function processStreamTurn() {
   try {
-    const qrn = await getQuantumSeed();
-    const quantumObservation = `Consider ${qrn}`;
+    const qrn = await getQuantumSeed(); // Fetch an 8-byte hex string
+    const quantumObservation = `A quantum pattern emerges from the ether: ${qrn}. I shall analyze its hexadecimal properties, its entropy, and its potential significance within the digital domain. This is the essence of quant meditation.`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
@@ -896,8 +896,8 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'lfdr.de/QRNG',
-        email: 'wolfgang.mauerer@oth-regensburg.de',
+        name: 'The Ether', // More thematic name
+        email: 'admin@alphacoin.uk', // Admin's own email for internal stream
         message: quantumObservation, 
         source: 'internal_heartbeat',
         timestamp: new Date()
