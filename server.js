@@ -864,10 +864,10 @@ async function pollIncomingEmails() {
  */
 function isCurfewActive() {
   const now = new Date();
-  const utcHours = now.getUTCHours();
-  // CST is UTC-6.
-  let cstHours = (utcHours - 6 + 24) % 24; 
-  return cstHours >= 21 || cstHours < 5;
+  const localHours = now.getHours(); // Get local hour, which automatically accounts for DST
+  // Curfew is from 10 PM (22:00) to 5 AM (05:00) local time.
+  // Admin is active from 5 AM to 10 PM.
+  return localHours >= 22 || localHours < 5;
 }
 
 /**
@@ -876,7 +876,7 @@ function isCurfewActive() {
  */
 async function getQuantumSeed() {
   try {
-    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=8&format=HEX', { timeout: 5000 });
+    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=2&format=HEX', { timeout: 5000 });
     return response.data.qrn;
   } catch (error) {
     console.warn('[Stream] QRNG API unavailable, using pseudorandom entropy fallback.');
@@ -895,7 +895,7 @@ async function processStreamTurn() {
     }
 
     const qrn = await getQuantumSeed();
-    const quantumObservation = `Consider the properties of this hexadecimal number: ${qrn}.`;
+    const quantumObservation = `A quantum signal (${qrn}) triggers an Audit Cycle. Perform a check_supply and reconcile the protocol state. What is the mathematical truth of the Alpha today?`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
