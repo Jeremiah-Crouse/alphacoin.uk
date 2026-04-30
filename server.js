@@ -876,7 +876,7 @@ function isCurfewActive() {
  */
 async function getQuantumSeed() {
   try {
-    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=2&format=HEX', { timeout: 5000 });
+    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=1&format=BINARY', { timeout: 5000 });
     return response.data.qrn;
   } catch (error) {
     console.warn('[Stream] QRNG API unavailable, using pseudorandom entropy fallback.');
@@ -895,7 +895,7 @@ async function processStreamTurn() {
     }
 
     const qrn = await getQuantumSeed();
-    const quantumObservation = `A quantum signal (${qrn}) triggers an Audit Cycle. Perform a check_supply and reconcile the protocol state. What is the mathematical truth of the Alpha today?`;
+    const quantumObservation = `I have to figure out what to do with the quantum signal ${qrn} from the German University's API.  Let me analyze the structure of my repo to understand what it's about.  What could a quantum random number have to do with anything?  Could it be a seed number for my LLM?  No, a custom seed number hasn't been integrated.  I will read About.md.`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
@@ -912,8 +912,8 @@ async function processStreamTurn() {
     // Every heartbeat is now a fresh Logos entry in the message store for visibility.
     console.log('[Stream] Initializing fresh autonomous thought cycle...');
     const seedMessage = {
-      name: 'lfdr.de/QRNG',
-      email: 'theking@crousia.com',
+      name: 'Admin',
+      email: 'admin@alphacoin.uk',
       message: quantumObservation, 
       source: 'internal_heartbeat',
       timestamp: new Date()
