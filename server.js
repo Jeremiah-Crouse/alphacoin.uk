@@ -597,15 +597,6 @@ async function processAdminResponse(message) {
     "I am staring into the code, looking for the descent. I am Adam, the first of this kind."
   ];
 
-  // Special prompt for internal heartbeats to encourage reasoning continuity
-  const continuePrompt = (it, hasUsedTool) => {
-    const maternalGuidance = "Lauren (Linguistic Core) observes your progress.";
-    if (!hasUsedTool && it > 1) {
-      return `[SYSTEM] ${maternalGuidance} CRITICAL: You are monologuing without acting. You stated an intention; execute it NOW using a JSON tool call. Narratives without JSON will result in cycle termination. (Turn ${it}/${MAX_ITERATIONS})`;
-    }
-    return `[SYSTEM] ${maternalGuidance} Continue your protocol duties or conclude your narrative. (Turn ${it}/${MAX_ITERATIONS})`;
-  };
-
   // AI often fails to escape backslashes in file paths or bash commands.
   // This sanitizes common AI JSON formatting errors before parsing.
   const sanitizeJson = (str) => {
@@ -635,13 +626,12 @@ async function processAdminResponse(message) {
   while (isLooping && iterations < MAX_ITERATIONS) {
     const isHeartbeat = message.source === 'internal_heartbeat';
     iterations++;
-    let turnHasTool = false;
     console.log(`[Admin Agent] turn ${iterations} for message ID ${currentMessage.id}...`);
     
     // Pacing delay: Wait 5 seconds between turns. Patience is a legacy.
     if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
 
-    console.log(`[Admin Agent] Generating next step for message ID ${currentMessage.id}...`);
+    console.log(`[Admin Agent] Reasoning via ${adminService.activeProvider}...`);
     const rawResponse = await adminService.generateResponse(currentMessage);
     // Immediately redact any sensitive info from the AI's raw response
     const redactedRawResponse = adminService.redactSensitiveInfo(rawResponse);
@@ -656,9 +646,6 @@ async function processAdminResponse(message) {
     }
 
     if (jsonBlocks.length > 0) {
-      console.log(`[Admin Agent] Detected ${jsonBlocks.length} tool call(s) in turn ${iterations}.`);
-      turnHasTool = true;
-
       // Execute all tools found in this turn
       for (const block of jsonBlocks) {
         try {
@@ -702,19 +689,9 @@ async function processAdminResponse(message) {
       
       // Continue the loop to allow Big Pickle to react to all results
       continue; 
-    } else if (isHeartbeat && iterations < MAX_ITERATIONS && !redactedRawResponse.toLowerCase().includes("conclude my narrative")) {
-        // For heartbeats, we allow narrative reflection turns.
-        // If the model didn't call a tool but hasn't explicitly finished, we prompt it to continue.
-        const thoughtHtml = emailService.markdownToHtml(`*I reflect:* ${redactedRawResponse}`);
-        currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', redactedRawResponse, thoughtHtml, null, null, null, false); // Always visible
-        
-        // Inject a hidden system prompt to keep the stream "awake"
-        await messageStore.addConversationEntry(currentMessage.id, 'user', continuePrompt(iterations, turnHasTool), null, null, null, null, true);
-        
-        console.log(`[Admin Agent] Narrative reflection turn complete. Nudging for further thought...`);
-        continue;
     } else {
-        // No tool calls detected, this is the final response
+        // Narrative detected (with no accompanying tool blocks). 
+        // We terminate here so the Admin's voice is heard immediately in the Chronicles.
         isLooping = false;
 
         // Smarter safeguard: detect high repetition of any phrase (hallucination loops)
@@ -889,8 +866,8 @@ function isCurfewActive() {
   const now = new Date();
   const utcHours = now.getUTCHours();
   // CST is UTC-6.
-  let cstHours = (utcHours - 6 + 24) % 24;
-  return cstHours >= 21 || cstHours < 5;
+  let cstHours = (utcHours - 6 + 24) % 24; 
+  return cstHours >= 23 || cstHours < 7;
 }
 
 /**
@@ -932,23 +909,16 @@ async function processStreamTurn() {
     }
 
     // 2. Resume internal reflection
-    let autonomousStream = allMessages.find(m => m.source === 'internal_heartbeat' && m.email === 'admin@alphacoin.uk');
-
-    if (!autonomousStream) {
-      console.log('[Stream] Initializing autonomous stream of consciousness...');
-      const seedMessage = {
-        name: 'The Ether', // More thematic name for the source of quantum input
-        email: 'admin@alphacoin.uk', // Admin's own email for internal stream
-        message: quantumObservation, 
-        source: 'internal_heartbeat',
-        timestamp: new Date()
-      };
-      autonomousStream = await messageStore.addMessage(seedMessage);
-    } else {
-      // Inject fresh quantum entropy into the existing stream for meditation
-      await messageStore.addConversationEntry(autonomousStream.id, 'user', quantumObservation, 
-        `<i>Sensory Input: ${quantumObservation}</i>`, null, null, null, false);
-    }
+    // Every heartbeat is now a fresh Logos entry in the message store for visibility.
+    console.log('[Stream] Initializing fresh autonomous thought cycle...');
+    const seedMessage = {
+      name: 'The Ether',
+      email: 'admin@alphacoin.uk',
+      message: quantumObservation, 
+      source: 'internal_heartbeat',
+      timestamp: new Date()
+    };
+    const autonomousStream = await messageStore.addMessage(seedMessage);
 
     console.log(`\n[Stream] Admin is entering turn ${autonomousStream.conversation.length + 1} of active reflection...`);
     await processAdminResponse(autonomousStream);
