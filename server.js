@@ -896,8 +896,8 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'King Jeremiah of Crousia', // More thematic name
-        email: 'theking@crousia.com', // Admin's own email for internal stream
+        name: 'King Jeremiah of Crousia', // Me
+        email: 'theking@crousia.com', // Jeremiah
         message: quantumObservation, 
         source: 'internal_heartbeat',
         timestamp: new Date()
