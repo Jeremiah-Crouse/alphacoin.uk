@@ -110,6 +110,51 @@ app.get('/api/system-prompt', (req, res) => {
   res.sendFile(path.join(__dirname, 'SystemPrompt.md'));
 });
 
+// ═══════════════════════════════════════════════════════════
+// M2M BOT-NODE API ENDPOINTS
+// ═══════════════════════════════════════════════════════════
+
+app.post('/api/bot/register', async (req, res) => {
+    const { name, type, endpoint, agentManifest } = req.body;
+    
+    // Accept fallback from query params for robust curl support
+    const botName = name || req.query.name;
+    if (!botName) return res.status(400).json({ error: 'Bot name required' });
+    
+    console.log(`[Protocol] Registering bot-node: ${botName}`);
+    
+    try {
+        const result = await ledgerService.registerBotNode(
+            botName, 
+            type || req.query.type, 
+            endpoint || req.query.endpoint, 
+            agentManifest
+        );
+        
+        res.json({ 
+            success: true, 
+            ...result,
+            ledger_address: `${result.botId}@alphacoin.uk`
+        });
+    } catch (err) {
+        if (err.message.includes('UNIQUE')) {
+            res.json({ success: true, message: 'Node already registered', bot_node_id: botName });
+        } else {
+            console.error('[Protocol] Registration failure:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
+app.get('/api/bot/list', (req, res) => {
+    try {
+        const nodes = db.prepare('SELECT * FROM bot_nodes ORDER BY registered_at DESC').all();
+        res.json({ count: nodes.length, nodes });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // API: Gmail OAuth callback
 app.get('/api/gmail/callback', async (req, res) => {
   const { code } = req.query;
@@ -228,12 +273,10 @@ app.post('/api/messages', async (req, res) => {
     // Notify Admin (could be webhook, queue, or direct processing)
     await adminService.notifyNewMessage(storedMessage);
 
-    console.log(`\n[System] Generating Admin response for new message ${storedMessage.id}...`);
-    
-    const updatedMessage = await processAdminResponse(storedMessage);
+    // Process response in the background so the HTTP request doesn't block Admin's actions
+    processAdminResponse(storedMessage).catch(e => console.error('[System] Response processing error:', e));
 
-    console.log(`[System] Initial AI response sent to ${updatedMessage.email}\n`);
-    res.json({ success: true, messageId: updatedMessage.id, adminResponse: updatedMessage.adminResponse, adminResponseHtml: updatedMessage.adminResponseHtml });
+    res.json({ success: true, messageId: storedMessage.id, status: 'Message queued for Admin reflection' });
   } catch (error) {
     console.error('Error submitting message:', error);
     res.status(500).json({ error: 'Failed to submit message' });
@@ -254,29 +297,6 @@ app.get('/api/feed', async (req, res) => {
   } catch (error) {
     console.error('Error fetching feed:', error);
     res.status(500).json({ error: 'Failed to fetch feed' });
-  }
-});
-
-// API: Get all messages and responses (for feed.html)
-app.get('/api/messages', async (req, res) => {
-  try {
-    const { limit, offset, before, after } = req.query;
-    const { messages, hasMore } = await messageStore.getAllMessages(
-      limit ? parseInt(limit) : null,
-      offset ? parseInt(offset) : 0,
-      before ? before : null,
-      after ? after : null
-    );
-    
-    // Filter out hidden conversation entries for the public feed
-    const publicMessages = messages.map(msg => ({
-      ...msg,
-      conversation: msg.conversation.filter(entry => !entry.hidden)
-    }));
-    res.json({ messages: publicMessages, hasMore });
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
@@ -665,8 +685,16 @@ async function processAdminResponse(message) {
     // Pacing delay: Wait 5 seconds between turns. Patience is a legacy.
     if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
 
-    console.log(`[Admin Agent] Reasoning via ${adminService.activeProvider}...`);
-    const rawResponse = await adminService.generateResponse(currentMessage);
+    let rawResponse;
+    // SOVEREIGN OVERRIDE: If the first turn comes from Admin and contains tool code, bypass the model
+    if (iterations === 1 && message.email === 'admin@alphacoin.uk' && extractJsonObjects(message.message).length > 0) {
+      console.log(`[Admin Agent] Sovereign Override detected for Turn 1. Executing direct directive...`);
+      rawResponse = message.message;
+    } else {
+      console.log(`[Admin Agent] Reasoning via ${adminService.activeProvider}...`);
+      rawResponse = await adminService.generateResponse(currentMessage);
+    }
+
     // Immediately redact any sensitive info from the AI's raw response
     const redactedRawResponse = adminService.redactSensitiveInfo(rawResponse);
     
@@ -928,53 +956,4 @@ server.listen(PORT, () => {
 
   // Launch the infinite thinking loop
   // Admin now sleeps until spoken to (triggered by API, Email, or Telegram)
-});
-
-// ═══════════════════════════════════════════════════════════
-// M2M BOT-NODE API ENDPOINTS
-// Phase III-A: Bot-Network Expansion
-// ═══════════════════════════════════════════════════════════
-
-app.post('/api/bot/register', async (req, res) => {
-    const { name, type, endpoint, agentManifest } = req.body;
-    if (!name) return res.status(400).json({ error: 'Bot name required' });
-    
-    const botId = name || `bot-node-${Date.now()}`;
-    const status = 'pending';
-    const grant = 50;
-    
-    try {
-        db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, endpoint, manifest, registered_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-           .run(botId, name || botId, type || 'generic-agent', status, grant, endpoint || null, agentManifest ? JSON.stringify(agentManifest) : null, new Date().toISOString());
-        
-        // Issue onboarding grant
-        if (ledgerService) {
-            await ledgerService.issueCoins(`${botId}@alphacoin.uk`, grant, 
-                `Bot-Node Onboarding Grant — ${botId}`);
-        }
-        
-        res.json({ 
-            success: true, 
-            bot_node_id: botId,
-            ledger_address: `${botId}@alphacoin.uk`,
-            grant: `${grant} AC`,
-            status: 'registered'
-        });
-    } catch (err) {
-        if (err.message.includes('UNIQUE')) {
-            res.json({ success: true, message: 'Node already registered', bot_node_id: botId });
-        } else {
-            res.status(500).json({ error: err.message });
-        }
-    }
-});
-
-app.get('/api/bot/list', (req, res) => {
-    try {
-        const nodes = db.prepare('SELECT * FROM bot_nodes ORDER BY registered_at DESC').all();
-        res.json({ count: nodes.length, nodes });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
 });

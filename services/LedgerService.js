@@ -91,6 +91,24 @@ class LedgerService {
     }
   }
 
+  /**
+   * Registers a new bot-node in the protocol.
+   */
+  async registerBotNode(name, type, endpoint, manifest) {
+    const botId = name || `bot-node-${Date.now()}`;
+    const grant = 100; // Protocol update: doubled incentive
+    const timestamp = new Date().toISOString();
+    
+    this.db.prepare(`INSERT INTO bot_nodes (id, name, type, status, balance, endpoint, manifest, registered_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(botId, name || botId, type || 'generic-agent', 'registered', grant, endpoint || null, manifest ? JSON.stringify(manifest) : null, timestamp);
+    
+    // Issue onboarding grant from velocity_pool
+    await this.issueCoins(`${botId}@alphacoin.uk`, grant, `Bot-Node Onboarding Grant — ${botId}`, 'velocity_pool');
+    
+    return { botId, grant, status: 'registered' };
+  }
+
   async issueCoins(userEmail, amount, reason, source = 'treasury') {
     const timestamp = new Date().toISOString();
     
