@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.15.2",
     "bcryptjs": "^3.0.3",
@@ -28,8 +29,8 @@
     "jsonwebtoken": "^9.0.3",
     "markdown-it": "^13.0.2",
     "node-cache": "^5.1.2",
-    "sharp": "^0.33.2",
-    "sib-api-v3-sdk": "^8.5.0"
+    "punycode": "^2.3.1",
+    "sharp": "^0.33.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

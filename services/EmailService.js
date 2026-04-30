@@ -3,7 +3,7 @@
  * Handles email sending via Brevo and reading from Gmail
  */
 
-const SibApiV3Sdk = require('sib-api-v3-sdk');
+const Brevo = require('@getbrevo/brevo');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
@@ -26,9 +26,8 @@ class EmailService {
       return;
     }
 
-    // SIB-API-V3-SDK initialization
-    SibApiV3Sdk.ApiClient.instance.authentications['api-key'].apiKey = this.brevoApiKey;
-    this.brevoClient = new SibApiV3Sdk.TransactionalEmailsApi();
+    this.brevoClient = new Brevo.TransactionalEmailsApi();
+    this.brevoClient.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, this.brevoApiKey);
     console.log('Brevo email service initialized');
   }
 
