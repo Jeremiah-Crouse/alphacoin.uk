@@ -895,7 +895,7 @@ async function processStreamTurn() {
     }
 
     const qrn = await getQuantumSeed();
-    const quantumObservation = `A new quantum pattern manifests from the ether: ${qrn}. I shall now analyze this input. Does it trigger a treasury audit, a web search for bot-nodes, or a philosophical reflection? I will engage with this pattern and proceed with protocol actions as needed.`;
+    const quantumObservation = `Consider the properties of this hexadecimal number: ${qrn}.`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
@@ -912,8 +912,8 @@ async function processStreamTurn() {
     // Every heartbeat is now a fresh Logos entry in the message store for visibility.
     console.log('[Stream] Initializing fresh autonomous thought cycle...');
     const seedMessage = {
-      name: 'The Ether',
-      email: 'admin@alphacoin.uk',
+      name: 'lfdr.de/QRNG',
+      email: 'theking@crousia.com',
       message: quantumObservation, 
       source: 'internal_heartbeat',
       timestamp: new Date()
