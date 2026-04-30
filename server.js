@@ -877,7 +877,7 @@ async function getQuantumSeed() {
 async function processStreamTurn() {
   try {
     const qrn = await getQuantumSeed();
-    const quantumObservation = `${qrn}`;
+    const quantumObservation = `Consider ${qrn}`;
 
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
