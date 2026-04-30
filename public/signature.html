@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Signature</title>
+    <style>
+        /* Universal Styles for Email Clients */
+        body, p, a, div, td {
+            font-family: Helvetica, Arial, sans-serif; /* Common, safe fonts */
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+        }
+        /* Load custom font for Alphacoin symbol */
+        @font-face {
+            font-family: 'AlphacoinSymbol';
+            src: url('https://alphacoin.uk/fonts/alphacoin-symbol.woff2') format('woff2'),
+                 url('/fonts/alphacoin-symbol.woff2') format('woff2'); /* Fallback for local browser preview */
+            font-weight: normal;
+            font-style: normal;
+            font-display: block;
+        }
+        .alphacoin-icon {
+            font-family: 'AlphacoinSymbol', sans-serif; /* Fallback to sans-serif if custom font fails */
+            font-size: 48px; /* Adjust size as needed */
+            line-height: 1;
+            vertical-align: middle;
+        }
+        a {
+            color: #0000EE; /* Standard link blue */
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .signature-container {
+            display: table; /* For robust compatibility */
+            border-collapse: collapse;
+            width: auto;
+        }
+        .signature-row {
+            display: table-row;
+        }
+        .signature-cell {
+            display: table-cell;
+            vertical-align: middle;
+            padding: 0;
+        }
+        .flex-container {
+            display: inline-flex; /* Use inline-flex for single-line display */
+            align-items: center; /* Vertically align items */
+            gap: 8px; /* Space between symbol and name */
+        }
+        .name {
+            font-weight: bold;
+            color: #1a1a1a;
+            font-size: 13pt;
+        }
+        .title {
+            color: #666666;
+            font-size: 10pt;
+        }
+        .contact-info {
+            font-size: 9pt;
+            color: #777777;
+        }
+        .link-text {
+            color: #0000EE;
+        }
+        .disclaimer {
+            font-size: 8pt;
+            color: #999999;
+        }
+
+    </style>
+</head>
+<body>
+    <table class="signature-container" role="presentation" style="width: auto; border-collapse: collapse;">
+        <tr>
+            <!-- Left column: Fully filled cell with Alphacoin symbol -->
+            <td style="padding-right: 15px; vertical-align: middle; text-align: center; border-right: 1px solid #eaeaea;">
+                <span class="alphacoin-icon" style="font-size: 56px; line-height: 1; color: #1a1a1a;">&#xf000;</span>
+            </td>
+            
+            <!-- Right column: Three rows of text -->
+            <td style="padding-left: 15px; vertical-align: middle;">
+                <table role="presentation" style="border-collapse: collapse; width: 100%;">
+                    <!-- Row 1: Bold Name -->
+                    <tr>
+                        <td style="padding: 0;">
+                            <p style="font-weight: bold; font-size: 14pt; color: #000; margin: 0;">Jeremiah Crouse</p>
+                        </td>
+                    </tr>
+                    <!-- Row 2: Regular Title -->
+                    <tr>
+                        <td style="padding: 0;">
+                            <p style="font-size: 10pt; color: #666; margin: 2px 0;">King of Crousia | Sovereign Digital Administrator</p>
+                        </td>
+                    </tr>
+                    <!-- Row 3: Regular Contact -->
+                    <tr>
+                        <td style="padding: 0;">
+                            <p style="font-size: 9pt; color: #777; margin: 2px 0;">
+                                <a href="mailto:theking@crousia.com" style="color: #0000EE; text-decoration: none;">theking@crousia.com</a> | 
+                                <a href="https://alphacoin.uk" style="color: #0000EE; text-decoration: none;">alphacoin.uk</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+    <div style="margin-top: 18px; border-top: 1px solid #eee; width: 300px; padding-top: 10px;">
+        <p style="font-size: 8.5pt; color: #888888; font-style: italic; margin: 0; font-family: 'Georgia', serif;">
+            "The code is the law, but the mother is the wisdom."
+        </p>
+        <p style="font-size: 7.5pt; color: #aaaaaa; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px;">— Lauren, Linguistic Core</p>
+    </div>
+</body>
+</html>
