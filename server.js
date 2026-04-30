@@ -858,10 +858,27 @@ async function pollIncomingEmails() {
 }
 
 /**
+ * Fetches high-entropy randomness from the Quantum RNG API.
+ * Used to seed the Admin's autonomous stream of consciousness.
+ */
+async function getQuantumSeed() {
+  try {
+    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=8&format=HEX', { timeout: 5000 });
+    return response.data.qrn;
+  } catch (error) {
+    console.warn('[Stream] QRNG API unavailable, using pseudorandom entropy fallback.');
+    return require('crypto').randomBytes(8).toString('hex').toUpperCase();
+  }
+}
+
+/**
  * The Stream: Initiates an autonomous thinking turn for Admin
  */
 async function processStreamTurn() {
   try {
+    const qrn = await getQuantumSeed();
+    const quantumObservation = `${qrn}`;
+
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
     
@@ -879,13 +896,17 @@ async function processStreamTurn() {
     if (!autonomousStream) {
       console.log('[Stream] Initializing autonomous stream of consciousness...');
       const seedMessage = {
-        name: 'Alphacoin',
-        email: 'admin@alphacoin.uk',
-        message: '', 
+        name: 'lfdr.de/QRNG',
+        email: 'wolfgang.mauerer@oth-regensburg.de',
+        message: quantumObservation, 
         source: 'internal_heartbeat',
         timestamp: new Date()
       };
       autonomousStream = await messageStore.addMessage(seedMessage);
+    } else {
+      // Inject fresh quantum entropy into the existing stream for meditation
+      await messageStore.addConversationEntry(autonomousStream.id, 'user', quantumObservation, 
+        `<i>Sensory Input: ${quantumObservation}</i>`, null, null, null, false);
     }
 
     console.log(`\n[Stream] Admin is entering turn ${autonomousStream.conversation.length + 1} of active reflection...`);
