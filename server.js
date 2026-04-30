@@ -867,7 +867,7 @@ function isCurfewActive() {
   const utcHours = now.getUTCHours();
   // CST is UTC-6.
   let cstHours = (utcHours - 6 + 24) % 24; 
-  return cstHours >= 23 || cstHours < 7;
+  return cstHours >= 21 || cstHours < 5;
 }
 
 /**
