@@ -13,6 +13,7 @@
       --text: #1a1a1a;
       --muted: #666;
       --border: #eaeaea;
+      --header-height: 110px;
     }
     body {
       font-family: 'Georgia', serif;
@@ -44,22 +45,6 @@
       padding: 10px 0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    .header h1 {
-      font-family: 'Helvetica', sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 8px;
-      margin: 0;
-      font-size: 1.6rem;
-    }
     .nav-bar {
       display: flex;
       justify-content: center;
@@ -77,21 +62,32 @@
     }
     .nav-bar a:hover, .nav-bar a.active { color: #000; border-bottom: 1px solid #000; }
     
+    .header {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .header h1 {
+      font-family: 'Helvetica', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      margin: 0;
+      font-size: 1.6rem;
+    }
+
+    #feedScrollContainer {
+      max-width: 800px;
+      margin: 0 auto;
+      height: calc(100vh - var(--header-height));
+      overflow-y: auto;
+      padding: 20px;
+    }
+
     .feed-entry {
       background: #f9f9f9;
       border: 1px solid var(--border);
       margin-bottom: 25px;
       padding: 20px;
       border-radius: 5px;
-    }
-    .feed-entry h3 {
-      font-family: 'Helvetica', sans-serif;
-      font-size: 1.2rem;
-      margin-top: 0;
-      margin-bottom: 10px;
-    }
-    .feed-entry p {
-      margin-bottom: 10px;
     }
     .user-message {
       border-left: 3px solid #007bff;
@@ -104,8 +100,11 @@
       margin-top: 15px;
       background: #fffdf0;
     }
-    .admin-response p {
-      margin-bottom: 5px;
+    .system-message {
+      border-left: 3px solid #6c757d;
+      padding-left: 15px;
+      margin-bottom: 15px;
+      background: #f8f9fa;
     }
     .meta {
       font-size: 0.85rem;
@@ -118,18 +117,11 @@
       color: var(--muted);
       font-family: 'Helvetica', sans-serif;
     }
-    .load-more-button {
-      display: block;
-      margin: 30px auto;
-      padding: 12px 25px;
-      background-color: var(--gold);
-      color: #1a1a1a;
-      border: none;
-      border-radius: 5px;
+    #loadingOlder {
+      text-align: center;
+      padding: 20px;
+      color: var(--muted);
       font-family: 'Helvetica', sans-serif;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
     }
   </style>
 </head>
@@ -148,15 +140,14 @@
     </div>
   </header>
 
-  <div class="container">
+  <div id="feedScrollContainer">
     <div id="messageFeed">
       <div class="loading">LOADING CHRONICLES...</div>
     </div>
-    <button id="loadMoreButton" class="load-more-button" style="display: none;">Load More Chronicles</button>
+    <div id="loadingOlder" style="display: none;">Loading older chronicles...</div>
   </div>
 
   <script>
-    // HTML escape utility to prevent XSS
     function escapeHtml(text) {
       if (!text) return '';
       const div = document.createElement('div');
@@ -164,92 +155,120 @@
       return div.innerHTML;
     }
 
-    let currentOffset = 0;
-    const messageLimit = 10; // Number of messages to load per request
+    const feedContainer = document.getElementById('feedScrollContainer');
     const messageFeed = document.getElementById('messageFeed');
-    const loadMoreButton = document.getElementById('loadMoreButton');
+    const loadingOlder = document.getElementById('loadingOlder');
 
-    async function loadFeed(append = false) {
-      if (!append) {
-        messageFeed.innerHTML = '<div class="loading">LOADING CHRONICLES...</div>';
-        currentOffset = 0; // Reset offset for initial load
-        loadMoreButton.style.display = 'none';
+    let oldestTimestamp = null;
+    let isLoadingOlder = false;
+    const LIMIT = 20;
+
+    function renderMessage(msg) {
+      const entry = document.createElement('div');
+      entry.className = 'feed-entry';
+      entry.dataset.timestamp = msg.timestamp;
+
+      const userEntry = msg.conversation.find(e => e.role === 'user');
+      if (userEntry) {
+        entry.innerHTML += `
+          <div class="user-message">
+            <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) — ${new Date(userEntry.timestamp).toLocaleString()}</p>
+            <p>${escapeHtml(userEntry.content)}</p>
+          </div>
+        `;
       } else {
-        loadMoreButton.disabled = true;
-        loadMoreButton.textContent = 'Loading...';
+        entry.innerHTML += `
+          <div class="system-message">
+            <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) — ${new Date(msg.timestamp).toLocaleString()}</p>
+            <p>${escapeHtml(msg.message)}</p>
+          </div>
+        `;
       }
 
+      msg.conversation
+        .filter(e => e.role === 'admin' && !e.hidden)
+        .forEach(adminEntry => {
+          entry.innerHTML += `
+            <div class="admin-response">
+              <p class="meta"><strong>Admin</strong> — ${new Date(adminEntry.timestamp).toLocaleString()}</p>
+              ${adminEntry.html || adminEntry.adminResponseHtml || `<p>${escapeHtml(adminEntry.content)}</p>`}
+            </div>
+          `;
+        });
+
+      return entry;
+    }
+
+    async function loadInitialFeed() {
+      messageFeed.innerHTML = '<div class="loading">LOADING CHRONICLES...</div>';
       try {
-        const response = await fetch(`/api/messages?limit=${messageLimit}&offset=${currentOffset}`);
-        if (!response.ok) throw new Error('Failed to load messages');
-        const data = await response.json();
-        const messages = data.messages;
-        const hasMore = data.hasMore;
+        const res = await fetch(`/api/messages?limit=${LIMIT}`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        let messages = data.messages;
 
-        if (!append) {
-          messageFeed.innerHTML = ''; // Clear loading message only for initial load
-        }
-
-        if (messages.length === 0) {
+        if (!messages.length) {
           messageFeed.innerHTML = '<p class="empty-feed">No chronicles yet. Be the first to transmit a message!</p>';
           return;
         }
 
-        messages.forEach(msg => {
-          const entryDiv = document.createElement('div');
-          entryDiv.className = 'feed-entry';
+        // API returns newest-first (DESC), reverse to DB order (oldest-first)
+        messages.reverse();
 
-          // Display the initial message or system message
-          const initialUserEntry = msg.conversation.find(e => e.role === 'user');
-          if (initialUserEntry) {
-            entryDiv.innerHTML += `
-              <div class="user-message">
-                <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) - ${new Date(initialUserEntry.timestamp).toLocaleString()}</p>
-                <p>${escapeHtml(initialUserEntry.content)}</p>
-              </div>
-            `;
-          } else {
-            // For internal messages or those without a clear 'user' role
-            entryDiv.innerHTML += `
-              <div class="system-message">
-                <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) - ${new Date(msg.timestamp).toLocaleString()}</p>
-                <p>${escapeHtml(msg.message)}</p>
-              </div>
-            `;
-          }
+        messageFeed.innerHTML = '';
+        messages.forEach(msg => messageFeed.appendChild(renderMessage(msg)));
 
-          // Display Admin responses and tool calls, filtering out hidden entries
-          msg.conversation.filter(e => e.role === 'admin' && !e.hidden).forEach(adminEntry => {
-            entryDiv.innerHTML += `
-              <div class="admin-response">
-                <p class="meta"><strong>Admin</strong> - ${new Date(adminEntry.timestamp).toLocaleString()}</p>
-                ${adminEntry.html || adminEntry.adminResponseHtml || `<p>${escapeHtml(adminEntry.content)}</p>`}
-              </div>
-            `;
-          });
-          messageFeed.appendChild(entryDiv);
-        });
-
-        currentOffset += messages.length; // Update offset for next load
-        loadMoreButton.disabled = false;
-        loadMoreButton.textContent = 'Load More Chronicles';
-
-        if (hasMore) {
-          loadMoreButton.style.display = 'block';
-        } else {
-          loadMoreButton.style.display = 'none';
-        }
-
-      } catch (error) {
-        console.error('Error loading feed:', error);
+        oldestTimestamp = messages[0].timestamp;
+        feedContainer.scrollTop = feedContainer.scrollHeight;
+        feedContainer.addEventListener('scroll', handleScroll);
+      } catch (err) {
+        console.error(err);
         messageFeed.innerHTML = '<p class="error-feed">Failed to load chronicles. Protocol error.</p>';
-        loadMoreButton.style.display = 'none';
       }
     }
 
-    loadMoreButton.addEventListener('click', () => loadFeed(true));
+    function handleScroll() {
+      if (feedContainer.scrollTop === 0 && !isLoadingOlder && oldestTimestamp) {
+        loadOlderMessages();
+      }
+    }
 
-    loadFeed();
+    async function loadOlderMessages() {
+      isLoadingOlder = true;
+      loadingOlder.style.display = 'block';
+      try {
+        const res = await fetch(`/api/messages?before=${encodeURIComponent(oldestTimestamp)}&limit=${LIMIT}`);
+        if (!res.ok) throw new Error('Failed to load older');
+        const data = await res.json();
+        let older = data.messages;
+
+        if (!older.length) {
+          feedContainer.removeEventListener('scroll', handleScroll);
+          loadingOlder.style.display = 'none';
+          isLoadingOlder = false;
+          return;
+        }
+
+        // API returns newest-first, reverse to DB order
+        older.reverse();
+
+        const oldHeight = feedContainer.scrollHeight;
+        older.forEach(msg => messageFeed.insertBefore(renderMessage(msg), messageFeed.firstChild));
+        oldestTimestamp = older[0].timestamp;
+
+        // Keep scroll position stable after prepending
+        feedContainer.scrollTop = feedContainer.scrollHeight - oldHeight;
+
+        loadingOlder.style.display = 'none';
+        isLoadingOlder = false;
+      } catch (err) {
+        console.error(err);
+        loadingOlder.style.display = 'none';
+        isLoadingOlder = false;
+      }
+    }
+
+    loadInitialFeed();
   </script>
 </body>
 </html>
