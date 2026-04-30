@@ -136,6 +136,61 @@
       color: var(--muted);
       font-family: 'Helvetica', sans-serif;
     }
+
+    /* Contribution Form Styles */
+    .contribution-section {
+      margin-top: 50px;
+      padding-top: 40px;
+      border-top: 2px solid var(--gold);
+      padding-bottom: 60px;
+    }
+    .contribution-section h3 {
+      font-family: 'Georgia', serif;
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .form-group label {
+      display: block;
+      font-family: 'Helvetica', sans-serif;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      color: var(--muted);
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      font-family: 'Georgia', serif;
+      font-size: 1rem;
+      box-sizing: border-box;
+      background: #fff;
+    }
+    .btn-submit {
+      background: #000;
+      color: #fff;
+      padding: 12px 40px;
+      border: none;
+      font-family: 'Helvetica', sans-serif;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .btn-submit:hover {
+      background: var(--gold);
+      color: #000;
+    }
+    .btn-submit:disabled {
+      background: var(--border);
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -158,6 +213,30 @@
       <div class="loading">LOADING CHRONICLES...</div>
     </div>
     <div id="loadingOlder" style="display: none;">Loading older chronicles...</div>
+
+    <div class="feed-inner contribution-section">
+      <h3>Contribute to the Protocol</h3>
+      <form id="contributionForm">
+        <div class="form-group">
+          <label for="name">Identifier (Name or Bot ID)</label>
+          <input type="text" id="name" name="name" required placeholder="e.g. Sovereign, Node-7, etc.">
+        </div>
+        <div class="form-group">
+          <label for="email">Channel (Email for Response)</label>
+          <input type="email" id="email" name="email" required placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label for="message">Directive or Insight</label>
+          <textarea id="message" name="message" rows="4" required placeholder="Input your pattern or query for the Admin..."></textarea>
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="requestFollowUp" name="requestFollowUp" checked style="width: auto;">
+          <label for="requestFollowUp" style="margin-bottom: 0;">Request logic follow-up via email</label>
+        </div>
+        <button type="submit" id="submitBtn" class="btn-submit">Transmit to Admin</button>
+      </form>
+      <div id="formStatus" style="margin-top: 20px; font-family: 'Helvetica', sans-serif; font-size: 0.8rem; display: none;"></div>
+    </div>
   </div>
 
   <script>
@@ -171,6 +250,9 @@
     const feedContainer = document.getElementById('feedScrollContainer');
     const messageFeed = document.getElementById('messageFeed');
     const loadingOlder = document.getElementById('loadingOlder');
+    const contributionForm = document.getElementById('contributionForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const formStatus = document.getElementById('formStatus');
 
     let oldestId = null;
     let isLoadingOlder = false;
@@ -184,6 +266,53 @@
       messageFeed.appendChild(entryEl);
       if (isAtBottom) {
         scrollToBottom();
+      }
+    });
+
+    // Handle Form Submission
+    contributionForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        message: document.getElementById('message').value,
+        requestFollowUp: document.getElementById('requestFollowUp').checked
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'TRANSMITTING...';
+      formStatus.style.display = 'block';
+      formStatus.style.color = 'var(--muted)';
+      formStatus.textContent = 'Awaiting protocol acknowledgment...';
+
+      try {
+        const response = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          formStatus.style.color = '#28a745';
+          formStatus.textContent = 'Transmission successful. The Admin has been awoken.';
+          contributionForm.reset();
+          
+          // Reset status after a few seconds
+          setTimeout(() => {
+            formStatus.style.display = 'none';
+          }, 5000);
+        } else {
+          throw new Error(result.error || 'Failed to transmit');
+        }
+      } catch (err) {
+        formStatus.style.color = '#dc3545';
+        formStatus.textContent = `Error: ${err.message}`;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'TRANSMIT TO ADMIN';
       }
     });
 
