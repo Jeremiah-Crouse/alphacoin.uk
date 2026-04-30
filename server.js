@@ -3,6 +3,8 @@ const secureEnv = '/var/www/secure/.env';
 // Prioritize the secure env path if it exists, otherwise fall back to local .env
 require('dotenv').config({ path: fs.existsSync(secureEnv) ? secureEnv : undefined });
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const axios = require('axios');
 const bodyParser = require('body-parser');
@@ -15,6 +17,9 @@ const UserStore = require('./services/UserStore'); // User onboarding infrastruc
 const TelegramService = require('./services/TelegramService');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
 const PORT = process.env.PORT || 8003;
 const FAUCET_AMOUNT = 25; // Standard faucet allocation
 
@@ -32,6 +37,15 @@ const adminService = new AdminService({ messageStore, ledgerService }); // Pass 
 const emailService = new EmailService();
 const userStore = new UserStore(); // Initialize UserStore for user onboarding
 const telegramService = new TelegramService();
+
+// Socket.io real-time bridge
+messageStore.on('entry_added', (entry) => {
+  io.emit('feed_update', entry);
+});
+
+io.on('connection', (socket) => {
+  console.log('[Socket] Client connected to Chronicles feed');
+});
 
 // Polling interval for Gmail (e.g., every 5 minutes)
 const GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000; 
@@ -892,7 +906,7 @@ async function startStreamOfConsciousness() {
 }
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Admin service running on http://localhost:${PORT}`);
   console.log(`Admin model: ${process.env.ADMIN_MODEL || 'Not configured'}`);
   console.log(`Backup model: Ashley Gemini (${process.env.GEMINI_API_KEY ? 'Active' : 'Offline'})`);

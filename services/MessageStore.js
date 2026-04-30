@@ -7,9 +7,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
+const EventEmitter = require('events');
 
-class MessageStore {
+class MessageStore extends EventEmitter {
   constructor() {
+    super();
     this.dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../data/alphacoin.db');
     this.ensureDataDir();
     this.db = new Database(this.dbPath);
@@ -233,10 +235,21 @@ class MessageStore {
   async addConversationEntry(id, role, content, renderedHtml = null, sentEmailHtml = null, emailMessageId = null, emailThreadId = null, isHidden = false) {
     const timestamp = new Date().toISOString();
     
-    this.db.prepare(`
+    const info = this.db.prepare(`
       INSERT INTO conversation_entries (message_id, role, content, html, sentEmailHtml, timestamp, emailMessageId, emailThreadId, hidden) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, role, content, renderedHtml, sentEmailHtml, timestamp, emailMessageId, emailThreadId, isHidden ? 1 : 0);
+
+    // Broadcast the new entry for real-time updates if not hidden
+    if (!isHidden) {
+      const enrichedEntry = this.db.prepare(`
+        SELECT ce.*, m.name, m.email, m.source as messageSource, m.subject
+        FROM conversation_entries ce
+        JOIN messages m ON ce.message_id = m.id
+        WHERE ce.id = ?
+      `).get(info.lastInsertRowid);
+      this.emit('entry_added', enrichedEntry);
+    }
 
     // Update top-level fields for the 'messages' table if it's a public admin response
     if (role === 'admin' && !isHidden) {

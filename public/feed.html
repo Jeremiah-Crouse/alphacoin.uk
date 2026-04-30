@@ -36,10 +36,12 @@
       text-transform: uppercase;
     }
     .sticky-header {
-      position: sticky;
+      position: fixed;
       top: 0;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
       z-index: 1001;
       padding: 10px 0;
@@ -75,11 +77,18 @@
     }
 
     #feedScrollContainer {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      overflow-y: auto;
+      padding: var(--header-height) 20px 40px 20px;
+      scroll-behavior: smooth;
+    }
+    .feed-inner {
       max-width: 800px;
       margin: 0 auto;
-      height: calc(100vh - var(--header-height));
-      overflow-y: auto;
-      padding: 20px;
     }
 
     .feed-entry {
@@ -88,23 +97,26 @@
       margin-bottom: 25px;
       padding: 20px;
       border-radius: 5px;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .user-message {
       border-left: 3px solid #007bff;
-      padding-left: 15px;
-      margin-bottom: 15px;
     }
     .admin-response {
       border-left: 3px solid var(--gold);
-      padding-left: 15px;
-      margin-top: 15px;
       background: #fffdf0;
     }
-    .system-message {
-      border-left: 3px solid #6c757d;
+    .internal-message {
+      border-left: 3px solid #666;
+      background: #f1f1f1;
+      font-style: italic;
+    }
+    .entry-content {
       padding-left: 15px;
-      margin-bottom: 15px;
-      background: #f8f9fa;
     }
     .meta {
       font-size: 0.85rem;
@@ -141,7 +153,7 @@
   </header>
 
   <div id="feedScrollContainer">
-    <div id="messageFeed">
+    <div id="messageFeed" class="feed-inner">
       <div class="loading">LOADING CHRONICLES...</div>
     </div>
     <div id="loadingOlder" style="display: none;">Loading older chronicles...</div>
@@ -159,113 +171,127 @@
     const messageFeed = document.getElementById('messageFeed');
     const loadingOlder = document.getElementById('loadingOlder');
 
-    let oldestTimestamp = null;
+    let oldestId = null;
     let isLoadingOlder = false;
+    let isAtBottom = true;
     const LIMIT = 20;
 
-    function renderMessage(msg) {
-      const entry = document.createElement('div');
-      entry.className = 'feed-entry';
-      entry.dataset.timestamp = msg.timestamp;
+    // Initialize Socket.io
+    const socket = io();
+    socket.on('feed_update', (entry) => {
+      const entryEl = renderEntry(entry);
+      messageFeed.appendChild(entryEl);
+      if (isAtBottom) {
+        scrollToBottom();
+      }
+    });
 
-      const userEntry = msg.conversation.find(e => e.role === 'user');
-      if (userEntry) {
-        entry.innerHTML += `
-          <div class="user-message">
-            <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) — ${new Date(userEntry.timestamp).toLocaleString()}</p>
-            <p>${escapeHtml(userEntry.content)}</p>
-          </div>
-        `;
-      } else {
-        entry.innerHTML += `
-          <div class="system-message">
-            <p class="meta"><strong>${escapeHtml(msg.name)}</strong> (${escapeHtml(msg.email)}) — ${new Date(msg.timestamp).toLocaleString()}</p>
-            <p>${escapeHtml(msg.message)}</p>
-          </div>
-        `;
+    function renderEntry(entry) {
+      const div = document.createElement('div');
+      div.className = 'feed-entry';
+      
+      let typeClass = 'user-message';
+      let senderName = entry.name;
+      
+      if (entry.role === 'admin') {
+        typeClass = 'admin-response';
+        senderName = 'Admin';
+      } else if (entry.messageSource === 'internal_heartbeat') {
+        typeClass = 'internal-message';
       }
 
-      msg.conversation
-        .filter(e => e.role === 'admin' && !e.hidden)
-        .forEach(adminEntry => {
-          entry.innerHTML += `
-            <div class="admin-response">
-              <p class="meta"><strong>Admin</strong> — ${new Date(adminEntry.timestamp).toLocaleString()}</p>
-              ${adminEntry.html || adminEntry.adminResponseHtml || `<p>${escapeHtml(adminEntry.content)}</p>`}
-            </div>
-          `;
-        });
+      div.classList.add(typeClass);
 
-      return entry;
+      const content = entry.html || `<p>${escapeHtml(entry.content)}</p>`;
+      const timestamp = new Date(entry.timestamp).toLocaleString();
+
+      div.innerHTML = `
+        <div class="entry-content">
+          <p class="meta"><strong>${escapeHtml(senderName)}</strong> — ${timestamp}</p>
+          ${content}
+        </div>
+      `;
+
+      return div;
     }
 
     async function loadInitialFeed() {
-      messageFeed.innerHTML = '<div class="loading">LOADING CHRONICLES...</div>';
       try {
-        const res = await fetch(`/api/messages?limit=${LIMIT}`);
-        if (!res.ok) throw new Error('Failed to load');
+        const res = await fetch(`/api/feed?limit=${LIMIT}`);
+        if (!res.ok) throw new Error('Failed to load feed');
         const data = await res.json();
-        let messages = data.messages;
+        const entries = data.entries;
 
-        if (!messages.length) {
-          messageFeed.innerHTML = '<p class="empty-feed">No chronicles yet. Be the first to transmit a message!</p>';
+        if (!entries.length) {
+          messageFeed.innerHTML = '<p class="empty-feed">The Chronicles are quiet. Awaiting the first transmission...</p>';
           return;
         }
 
-        // API returns newest-first (DESC), reverse to DB order (oldest-first)
-        messages.reverse();
-
         messageFeed.innerHTML = '';
-        messages.forEach(msg => messageFeed.appendChild(renderMessage(msg)));
+        entries.forEach(entry => {
+          messageFeed.appendChild(renderEntry(entry));
+        });
 
-        oldestTimestamp = messages[0].timestamp;
-        feedContainer.scrollTop = feedContainer.scrollHeight;
+        oldestId = entries[0].id;
+        scrollToBottom();
+        
         feedContainer.addEventListener('scroll', handleScroll);
       } catch (err) {
         console.error(err);
-        messageFeed.innerHTML = '<p class="error-feed">Failed to load chronicles. Protocol error.</p>';
+        messageFeed.innerHTML = '<p class="error-feed">Protocol Error: Unable to sync with the Ledger.</p>';
       }
     }
 
     function handleScroll() {
-      if (feedContainer.scrollTop === 0 && !isLoadingOlder && oldestTimestamp) {
-        loadOlderMessages();
+      // Detect if user is at the bottom
+      const offset = 50;
+      isAtBottom = (feedContainer.scrollTop + feedContainer.clientHeight) >= (feedContainer.scrollHeight - offset);
+
+      // Detect if user hit the top to load more
+      if (feedContainer.scrollTop === 0 && !isLoadingOlder && oldestId) {
+        loadOlderEntries();
       }
     }
 
-    async function loadOlderMessages() {
+    async function loadOlderEntries() {
       isLoadingOlder = true;
       loadingOlder.style.display = 'block';
+      
+      const entry = document.createElement('div');
       try {
-        const res = await fetch(`/api/messages?before=${encodeURIComponent(oldestTimestamp)}&limit=${LIMIT}`);
-        if (!res.ok) throw new Error('Failed to load older');
+        const res = await fetch(`/api/feed?beforeId=${oldestId}&limit=${LIMIT}`);
+        if (!res.ok) throw new Error('Failed to load history');
         const data = await res.json();
-        let older = data.messages;
+        const olderEntries = data.entries;
 
-        if (!older.length) {
-          feedContainer.removeEventListener('scroll', handleScroll);
+        if (!olderEntries.length) {
           loadingOlder.style.display = 'none';
           isLoadingOlder = false;
+          // Optionally remove listener if no more history exists
           return;
         }
 
-        // API returns newest-first, reverse to DB order
-        older.reverse();
+        const currentScrollHeight = feedContainer.scrollHeight;
+        
+        // Prepend in reverse order of the returned array to maintain chronological top-to-bottom
+        olderEntries.reverse().forEach(entry => {
+          messageFeed.insertBefore(renderEntry(entry), messageFeed.firstChild);
+        });
 
-        const oldHeight = feedContainer.scrollHeight;
-        older.forEach(msg => messageFeed.insertBefore(renderMessage(msg), messageFeed.firstChild));
-        oldestTimestamp = older[0].timestamp;
-
-        // Keep scroll position stable after prepending
-        feedContainer.scrollTop = feedContainer.scrollHeight - oldHeight;
-
-        loadingOlder.style.display = 'none';
-        isLoadingOlder = false;
+        oldestId = data.entries[data.entries.length - 1].id;
+        
+        // Offset scroll to keep position
+        feedContainer.scrollTop = feedContainer.scrollHeight - currentScrollHeight;
       } catch (err) {
         console.error(err);
+      } finally {
         loadingOlder.style.display = 'none';
         isLoadingOlder = false;
       }
+    }
+
+    function scrollToBottom() {
+      feedContainer.scrollTop = feedContainer.scrollHeight;
     }
 
     loadInitialFeed();
