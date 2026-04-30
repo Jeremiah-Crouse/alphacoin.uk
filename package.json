@@ -30,7 +30,8 @@
     "markdown-it": "^13.0.2",
     "node-cache": "^5.1.2",
     "punycode": "^2.3.1",
-    "sharp": "^0.33.2"
+    "sharp": "^0.33.2",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
