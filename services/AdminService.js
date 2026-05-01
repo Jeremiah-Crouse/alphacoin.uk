@@ -645,7 +645,7 @@ class AdminService {
         const response = await axios.post('https://api.tavily.com/search', {
           api_key: process.env.TAVILY_API_KEY,
           query: query,
-          search_depth: "smart"
+          search_depth: "advanced"
         });
         const optimizedResults = (response.data.results || []).slice(0, 3).map(r => ({ 
           title: r.title, 
