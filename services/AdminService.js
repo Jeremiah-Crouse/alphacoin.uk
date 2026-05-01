@@ -3,20 +3,21 @@
  * Abstracts the AI model behind a job role interface
  * Supports easy swapping between different model providers
  * 
- * Primary: OpenCode Zen Protocol with Big Pickle model
+ * Primary: Anthropic Claude (Haiku/Opus) or OpenCode Zen Protocol
  */
 
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const util = require('util');
 const execPromise = util.promisify(exec);
 
 class AdminService {
   constructor(services = {}) {
-    this.modelProvider = process.env.ADMIN_MODEL || 'opencode'; // opencode, openai, local, etc.
+    this.modelProvider = process.env.ADMIN_MODEL || 'opencode'; // anthropic, opencode, openai, etc.
     this.activeProvider = this.modelProvider; // Track the currently active model for the toggle system
     this.apiKey = process.env.ADMIN_API_KEY;
     this.model = process.env.ADMIN_MODEL_NAME || 'big-pickle'; // Zen protocol model identifier
@@ -57,6 +58,9 @@ class AdminService {
       case 'openai':
         this.initOpenAI();
         break;
+      case 'anthropic':
+        this.initAnthropic();
+        break;
       case 'local':
         this.initLocal();
         break;
@@ -82,9 +86,24 @@ class AdminService {
     });
 
     console.log(`✓ Admin initialized with OpenCode Zen Protocol`);
-    console.log(`  Model: ${this.model} (Big Pickle)`);
+    console.log(`  Model: ${this.model}`);
     console.log(`  Endpoint: ${this.zenBaseUrl}`);
     console.log(`  Web Search: ${process.env.TAVILY_API_KEY ? 'ENABLED (Tavily)' : 'DISABLED'}`);
+  }
+
+  initAnthropic() {
+    // Initialize Anthropic Claude (Haiku/Sonnet/Opus)
+    if (!this.apiKey) {
+      console.error('ADMIN_API_KEY not set - Anthropic logic cannot initialize');
+      return;
+    }
+
+    this.anthropic = new Anthropic({
+      apiKey: this.apiKey,
+    });
+
+    console.log(`✓ Admin initialized with Anthropic Claude`);
+    console.log(`  Model Tier: ${this.model}`);
   }
 
   initGemini() {
@@ -148,6 +167,8 @@ class AdminService {
               return await this.generateResponseZen(message);
             } else if (this.activeProvider === 'openai') {
               return await this.generateResponseOpenAI(message);
+            } else if (this.activeProvider === 'anthropic') {
+              return await this.generateResponseAnthropic(message);
             } else {
               return await this.generateResponseGemini(message);
             }
@@ -161,7 +182,7 @@ class AdminService {
                 const retryAfter = error.response.headers['retry-after'];
                 const rateLimitReset = error.response.headers['x-ratelimit-reset'];
                 
-                if (retryAfter) {
+                if (retryAfter && !isNaN(retryAfter)) {
                   waitTime = (parseInt(retryAfter) * 1000) + 1000; // Convert to ms + 1s buffer
                   console.log(`[Admin] Respecting 'retry-after' header: ${retryAfter}s`);
                 } else if (rateLimitReset) {
@@ -189,7 +210,8 @@ class AdminService {
         }
       } catch (error) {
         const hasBackup = (this.activeProvider === 'opencode' && this.geminiClient) || 
-                          (this.activeProvider === 'gemini' && this.client);
+                          (this.activeProvider === 'anthropic' && this.geminiClient) ||
+                          (this.activeProvider === 'gemini' && (this.client || this.anthropic));
         
         if (hasBackup && providerToggles < maxToggles - 1) {
           providerToggles++;
@@ -246,18 +268,35 @@ class AdminService {
       // The AI should respond to the *entire* conversation, not just the last message.
       // The `conversationMessages` array already contains the full history.
 
-      console.log(`[Admin] Generating response via Zen Protocol (Big Pickle) for message ID ${message.id} (Conversation length: ${conversationMessages.length})`);
+      const modelId = this.model.startsWith('opencode/') ? this.model.split('/')[1] : this.model;
+      const isClaude = modelId.startsWith('claude');
+      const isGpt = modelId.startsWith('gpt');
+      const isGemini = modelId.startsWith('gemini');
 
-      const response = await this.client.post('/chat/completions', {
+      let endpoint = '/chat/completions';
+      let payload = {
         model: this.model,
-        messages: [
+        max_tokens: 4096,
+        temperature: 0.7
+      };
+
+      if (isClaude) {
+        endpoint = '/messages';
+        payload.system = this.systemPrompt;
+        payload.messages = conversationMessages;
+      } else {
+        if (isGpt) endpoint = '/responses';
+        if (isGemini) endpoint = `/models/${modelId}`;
+        
+        payload.messages = [
           { role: 'system', content: this.systemPrompt },
-          ...conversationMessages // Pass the entire conversation history
-        ],
-        temperature: 0.7,
-        max_tokens: 4096, // Balanced limit to prevent runaway output
-        timeout: 60000 // 60 second timeout for AI response
-      });
+          ...conversationMessages
+        ];
+      }
+
+      console.log(`[Admin] Generating response via Zen Protocol (${this.model}) for message ID ${message.id} (Conversation length: ${conversationMessages.length})`);
+
+      const response = await this.client.post(endpoint, payload, { timeout: 60000 });
 
       console.log(`[Admin] Zen Protocol Response Status: ${response.status}`);
       
@@ -267,6 +306,7 @@ class AdminService {
         response.data?.choices?.[0]?.text || 
         response.data?.choices?.[0]?.content || // Fallback to content if message.content is missing
         response.data?.text || // Fallback for older API formats
+        (response.data?.content && Array.isArray(response.data.content) ? response.data.content[0]?.text : null) || // Claude format
         ''; // Removed the unwanted boilerplate message
 
       console.log(`[Admin] Successfully received response (${generatedText.length} chars)`);
@@ -280,6 +320,48 @@ class AdminService {
         console.error(`  Message: ${error.message}`);
       }
       // Throw the error so the wrapper can trigger the fallback model (Ashley)
+      throw error;
+    }
+  }
+
+  /**
+   * Generate response using Anthropic Claude (Haiku/Opus)
+   */
+  async generateResponseAnthropic(message) {
+    try {
+      if (!this.anthropic) throw new Error('Anthropic client not initialized');
+
+      const conversationMessages = message.conversation
+        .filter(entry => !entry.hidden)
+        .map(entry => {
+          let role = entry.role === 'admin' ? 'assistant' : 'user';
+          let content = entry.content;
+          
+          if (entry.role === 'user') {
+            content = message.email === 'admin@alphacoin.uk' 
+              ? `SOVEREIGN DIRECTIVE (INTERNAL):\n\n${content}`
+              : `From ${message.name} (${message.email}):\n\n${content}`;
+          }
+          
+          if (entry.role === 'admin' && (content.startsWith('[INTERNAL_RESULT]') || content.startsWith('[SENSORY_DATA]'))) {
+            content = `TOOL OUTPUT:\n${content.replace('[INTERNAL_RESULT]', '').replace('[SENSORY_DATA]', '').trim()}`;
+            role = 'user';
+          }
+          return { role, content };
+        });
+
+      console.log(`[Admin] Generating response via Claude (${this.model}) for message ID ${message.id}`);
+
+      const response = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 4096,
+        system: this.systemPrompt,
+        messages: conversationMessages,
+      });
+
+      return response.content[0].text;
+    } catch (error) {
+      console.error(`[Admin] Anthropic Error: ${error.message}`);
       throw error;
     }
   }

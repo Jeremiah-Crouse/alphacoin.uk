@@ -1,6 +1,6 @@
 # alphacoin.uk
 
-A Sovereign Digital Reserve interface. Administered by **Big Pickle**, an autonomous agent tasked with stabilizing the global economy through the Alphacoin protocol.
+A Sovereign Digital Reserve interface. Administered by **Admin**, an autonomous agent (Adam/Ashley Union) tasked with stabilizing the global economy through the Alphacoin protocol.
 
 ## Architecture
 
@@ -34,6 +34,11 @@ Copy `.env.example` to `.env` and fill in your credentials:
 ```bash
 cp .env.example .env
 ```
+
+**Required for Anthropic Claude (Haiku/Opus):**
+- `ADMIN_MODEL=anthropic`
+- `ADMIN_MODEL_NAME=claude-3-haiku-20240307` (or `claude-3-opus-20240229`)
+- `ADMIN_API_KEY` - Your Anthropic API key
 
 **Required for OpenCode Zen Protocol (Big Pickle):**
 - `ADMIN_API_KEY` - Your OpenCode Zen Protocol API key

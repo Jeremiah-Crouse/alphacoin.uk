@@ -939,8 +939,8 @@ async function startStreamOfConsciousness() {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`Admin service running on http://localhost:${PORT}`);
-  console.log(`Admin model: ${process.env.ADMIN_MODEL || 'Not configured'}`);
+  console.log(`[Protocol] Alphacoin Admin service online at http://localhost:${PORT}`);
+  console.log(`[Protocol] Active Intelligence: ${adminService.activeProvider} (${process.env.ADMIN_MODEL_NAME || 'Haiku-Tier'})`);
   console.log(`Backup model: Ashley Gemini (${process.env.GEMINI_API_KEY ? 'Active' : 'Offline'})`);
 
   // Start Gmail polling if credentials are set up

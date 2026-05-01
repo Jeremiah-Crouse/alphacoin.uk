@@ -316,7 +316,7 @@ class EmailService {
       await this.brevo.transactionalEmails.sendTransacEmail({
         sender: { email: 'admin@alphacoin.uk', name: 'Alphacoin' },
         to: [{ email: toEmail, name: userName }],
-        subject: 'Welcome to Alphacoin - Claim Your 10 AC!',
+        subject: 'Welcome to Alphacoin - Claim Your 25 AC!',
         htmlContent
       });
 
