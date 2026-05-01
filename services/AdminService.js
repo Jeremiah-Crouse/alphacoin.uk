@@ -635,25 +635,47 @@ class AdminService {
    */
   async webSearch(query) {
     console.log(`[Admin Execution] Searching the web for: "${query}"`);
-    const searchApiKey = process.env.TAVILY_API_KEY || process.env.SERPER_API_KEY;
     
-    if (!searchApiKey) {
-      return "Error: Web search API key not configured. Please add TAVILY_API_KEY to your environment.";
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      return "Error: Search query is empty or invalid.";
     }
 
-    try {
-      // Placeholder for Tavily API call - a common choice for LLM search
-      const response = await axios.post('https://api.tavily.com/search', {
-        api_key: searchApiKey,
-        query: query,
-        search_depth: "smart"
-      });
-      // Return only top 3 results and truncate content to prevent token-count 429 errors
-      const optimizedResults = response.data.results.slice(0, 3).map(r => ({ title: r.title, url: r.url, snippet: r.content.substring(0, 300) + '...' }));
-      return JSON.stringify(optimizedResults, null, 2);
-    } catch (error) {
-      return `Error performing web search: ${error.message}`;
+    if (process.env.TAVILY_API_KEY) {
+      try {
+        const response = await axios.post('https://api.tavily.com/search', {
+          api_key: process.env.TAVILY_API_KEY,
+          query: query,
+          search_depth: "smart"
+        });
+        const optimizedResults = (response.data.results || []).slice(0, 3).map(r => ({ 
+          title: r.title, 
+          url: r.url, 
+          snippet: (r.content || "").substring(0, 300) + '...' 
+        }));
+        return JSON.stringify(optimizedResults, null, 2);
+      } catch (error) {
+        const details = error.response?.data?.detail || error.message;
+        return `Tavily Search Error: ${details}`;
+      }
+    } else if (process.env.SERPER_API_KEY) {
+      try {
+        const response = await axios.post('https://google.serper.dev/search', 
+          { q: query },
+          { headers: { 'X-API-KEY': process.env.SERPER_API_KEY, 'Content-Type': 'application/json' } }
+        );
+        const optimizedResults = (response.data.organic || []).slice(0, 3).map(r => ({
+          title: r.title,
+          url: r.link,
+          snippet: r.snippet
+        }));
+        return JSON.stringify(optimizedResults, null, 2);
+      } catch (error) {
+        const details = error.response?.data?.message || error.message;
+        return `Serper Search Error: ${details}`;
+      }
     }
+
+    return "Error: Web search API key not configured (TAVILY_API_KEY or SERPER_API_KEY missing).";
   }
 
   /**
