@@ -895,8 +895,8 @@ async function processStreamTurn() {
     // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
     const { messages: allMessages } = await messageStore.getAllMessages();
     
-    // Filter for messages that haven't been responded to and aren't internal heartbeats
-    const externalSignals = allMessages.filter(m => !m.adminResponse && m.source !== 'internal_heartbeat');
+    // Filter for messages that haven't been responded to and aren't internal signals (directives or heartbeats)
+    const externalSignals = allMessages.filter(m => !m.adminResponse && m.email !== 'admin@alphacoin.uk' && m.source !== 'internal_heartbeat');
     
     for (const signal of externalSignals) {
       console.log(`[Stream] Adam is turning his attention to external signal: ${signal.id} from ${signal.email}`);

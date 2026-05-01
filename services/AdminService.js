@@ -501,7 +501,8 @@ class AdminService {
       const faucetBal = await this.ledgerService.getFaucetWalletBalance();
       const velocityBal = await this.ledgerService.getVelocityPoolBalance();
       const { messages } = await this.messageStore.getAllMessages();
-      const pending = messages.filter(m => !m.adminResponse && m.email !== 'admin@alphacoin.uk').length;
+      // Filter out internal signals (Admin email or Heartbeat source) to count true pending external tasks
+      const pending = messages.filter(m => !m.adminResponse && m.email !== 'admin@alphacoin.uk' && m.source !== 'internal_heartbeat').length;
       return JSON.stringify({
         totalSupply: `${total} AC`,
         faucetPool: `${faucetBal} AC`,

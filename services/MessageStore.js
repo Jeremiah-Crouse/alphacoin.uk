@@ -252,7 +252,8 @@ class MessageStore extends EventEmitter {
     }
 
     // Update top-level fields for the 'messages' table if it's a public admin response
-    if (role === 'admin' && !isHidden) {
+    // Note: We update even if hidden so the message is marked as "responded to" in the ledger
+    if (role === 'admin') {
       this.db.prepare(`
         UPDATE messages 
         SET adminResponse = ?, adminResponseHtml = ?, adminResponseTime = ? 
