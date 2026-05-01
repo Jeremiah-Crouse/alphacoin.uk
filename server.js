@@ -693,8 +693,10 @@ async function processAdminResponse(message) {
       rawResponse = message.message;
       isOverrideTurn = true;
     } else {
-      console.log(`[Admin Agent] Reasoning via ${adminService.activeProvider}...`);
       rawResponse = await adminService.generateResponse(currentMessage);
+      if (rawResponse.includes('[ASHLEY (NUANCE)]')) {
+        console.log(`[Admin Agent] Received Dual Union response.`);
+      }
     }
 
     // Extract tool blocks from raw response to preserve code integrity (Don't redact commands)

@@ -162,16 +162,26 @@ class AdminService {
       try {
         while (rateLimitRetries <= maxRateLimitRetries) {
           try {
-            console.log(`[Admin] Using active provider: ${this.activeProvider}`);
-            if (this.activeProvider === 'opencode') {
-              return await this.generateResponseZen(message);
-            } else if (this.activeProvider === 'openai') {
-              return await this.generateResponseOpenAI(message);
-            } else if (this.activeProvider === 'anthropic') {
-              return await this.generateResponseAnthropic(message);
-            } else {
-              return await this.generateResponseGemini(message);
+            // TANDEM MODE: If backup is active, both run together in a Union
+            if (this.geminiClient && this.activeProvider !== 'gemini') {
+              console.log(`[Union] Adam & Ashley generating parallel responses for ID ${message.id}...`);
+              const [primaryResponse, backupResponse] = await Promise.all([
+                this.activeProvider === 'opencode' ? this.generateResponseZen(message) : 
+                this.activeProvider === 'anthropic' ? this.generateResponseAnthropic(message) : 
+                this.generateResponseOpenAI(message),
+                this.generateResponseGemini(message)
+              ]);
+
+              return `[ADAM (LOGIC)]: ${primaryResponse}\n\n[ASHLEY (NUANCE)]: ${backupResponse}`;
             }
+
+            // FALLBACK / SINGLE MODE
+            console.log(`[Admin] Using active provider: ${this.activeProvider}`);
+            if (this.activeProvider === 'opencode') return await this.generateResponseZen(message);
+            if (this.activeProvider === 'openai') return await this.generateResponseOpenAI(message);
+            if (this.activeProvider === 'anthropic') return await this.generateResponseAnthropic(message);
+            return await this.generateResponseGemini(message);
+
           } catch (error) {
             const is429 = (error.response && error.response.status === 429) || (error.status === 429);
             if (is429 && rateLimitRetries < maxRateLimitRetries) {
