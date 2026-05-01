@@ -237,6 +237,11 @@ class AdminService {
         return { role, content };
       });
 
+      // Virtual Nudge: If the conversation ends with the assistant, append a continuation prompt
+      if (conversationMessages.length > 0 && conversationMessages[conversationMessages.length - 1].role === 'assistant') {
+        conversationMessages.push({ role: 'user', content: "[SYSTEM] Your session is still active. Proceed with further tasks or call 'take_a_nap'." });
+      }
+
       // The last entry in the conversation is the one we need to respond to.
       // The AI should respond to the *entire* conversation, not just the last message.
       // The `conversationMessages` array already contains the full history.
@@ -312,6 +317,11 @@ class AdminService {
 
         return { role, parts: [{ text }] };
       });
+
+      // Virtual Nudge: Gemini requires alternating roles.
+      if (contents.length > 0 && contents[contents.length - 1].role === 'model') {
+        contents.push({ role: 'user', parts: [{ text: "[SYSTEM] Your session is still active. Proceed with further tasks or call 'take_a_nap'." }] });
+      }
 
       // COLLAPSE LOGIC: Gemini requires alternating user/model roles. 
       // We must merge consecutive messages with the same role.

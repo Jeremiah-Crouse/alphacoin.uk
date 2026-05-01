@@ -778,11 +778,7 @@ async function processAdminResponse(message) {
       }
       
       // Nudge to continue if not napping
-      if (!napRequested && isLooping && iterations < MAX_ITERATIONS) {
-        await messageStore.addConversationEntry(currentMessage.id, 'user', "[SYSTEM] Your session is still active. Proceed with further tasks or call 'take_a_nap'.", null, null, null, null, true);
-      } else if (napRequested) {
-        isLooping = false;
-      }
+      if (napRequested) isLooping = false;
   }
 
   return await messageStore.getMessage(currentMessage.id);
