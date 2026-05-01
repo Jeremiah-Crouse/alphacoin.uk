@@ -58,6 +58,7 @@ TOOLS:
 7. query_archives: Search the database for historical context and past messages (params: query, limit).
 8. web_search: Search the live internet for real-time information or news (params: query).
 9. take_a_nap: Conclude your current active session and enter standby mode (params: {}).
+10. run_python: Execute a simple Python script (params: code).
 
 To use a tool, respond with a JSON block only:
 {

@@ -377,6 +377,19 @@ class AdminService {
   }
 
   /**
+   * Execute a simple Python script.
+   */
+  async runPython(code) {
+    console.log(`[Admin Execution] Running python: ${code}`);
+    try {
+      const { stdout, stderr } = await execPromise(`python3 -c ${JSON.stringify(code)}`);
+      return stdout || stderr;
+    } catch (error) {
+      return `Python Error: ${error.message}`;
+    }
+  }
+
+  /**
    * Read a file from the system.
    */
   async readFile(filePath) {
@@ -592,6 +605,9 @@ class AdminService {
       case 'run_bash':
       case 'run_command': // Alias for common hallucination
         result = await this.executeBash(parameters.command);
+        break;
+      case 'run_python':
+        result = await this.runPython(parameters.code);
         break;
       case 'read_file':
         result = await this.readFile(parameters.filePath || parameters.path);

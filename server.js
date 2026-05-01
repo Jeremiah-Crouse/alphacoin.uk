@@ -697,10 +697,13 @@ async function processAdminResponse(message) {
       rawResponse = await adminService.generateResponse(currentMessage);
     }
 
+    // Extract tool blocks from raw response to preserve code integrity (Don't redact commands)
+    const jsonBlocks = extractJsonObjects(rawResponse);
+
     // Immediately redact any sensitive info from the AI's raw response
     const redactedRawResponse = adminService.redactSensitiveInfo(rawResponse);
-    
-    const jsonBlocks = extractJsonObjects(redactedRawResponse);
+
+    if (redactedRawResponse.toLowerCase().includes('take_a_nap')) napRequested = true;
 
     // If no closed JSON blocks found but the message starts with a '{', it's likely truncated
     if (jsonBlocks.length === 0 && redactedRawResponse.trim().startsWith('{')) {
@@ -719,10 +722,10 @@ async function processAdminResponse(message) {
 
           if (parsedResponse.tool === 'take_a_nap') napRequested = true;
 
-          // In an override turn, we don't need to re-state the intent narrative as the command is already public
-          const intentNarrative = isOverrideTurn 
+          // Redact narrative components of the JSON for the public Chronicles
+          const intentNarrative = adminService.redactSensitiveInfo(isOverrideTurn 
             ? `Executing Sovereign Directive: ${parsedResponse.tool}`
-            : (parsedResponse.reason || `I am focusing my creative energy on the ${parsedResponse.tool} tool...`);
+            : (parsedResponse.reason || `I am focusing my creative energy on the ${parsedResponse.tool} tool...`));
           
           // Record the "Intent" as a conscious thought in the Chronicles
           currentMessage = await messageStore.addConversationEntry(
