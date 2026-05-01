@@ -172,7 +172,7 @@ class AdminService {
                 this.generateResponseGemini(message)
               ]);
 
-              return `[ADAM]: ${primaryResponse}\n\n[GEMINI]: ${backupResponse}`;
+              return `[ADAM]: ${primaryResponse}\n\n--- RESONANCE ---\n\n[GEMINI]: ${backupResponse}`;
             }
 
             // FALLBACK / SINGLE MODE
