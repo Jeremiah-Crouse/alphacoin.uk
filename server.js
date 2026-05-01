@@ -480,7 +480,7 @@ app.get('/api/users/verify', async (req, res) => {
     // Send welcome email with faucet claim instructions
     await emailService.sendWelcomeEmail(user.email, user.name);
     
-    res.send('<html><body style="font-family: sans-serif; text-align: center; padding: 50px;"><h1>✅ Email Verified!</h1><p>Your account has been verified. You can now <a href="/dashboard.html">claim your Alpha Coins</a> from the faucet!</p></body></html>');
+    res.send('<html><body style="font-family: sans-serif; text-align: center; padding: 50px;"><h1>✅ Email Verified!</h1><p>Your account has been verified. <a href="/index.html">Login</a>?</p></body></html>');
   } catch (error) {
     console.error('Error verifying user:', error);
     res.status(400).send('Invalid or expired verification token');
