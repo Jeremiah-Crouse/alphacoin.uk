@@ -256,7 +256,7 @@ class AdminService {
           content = message.email === 'admin@alphacoin.uk'
             ? `ADMIN_COMMAND:\n${content}`
             : message.email === 'weave@alphacoin.uk'
-            ? `QUEEN_COMMAND:\n${content}`
+            ? `WEAVE_COMMAND:\n${content}`
             : `EXTERNAL_MESSAGE (${message.name}):\n${content}`;
         }
         
@@ -390,7 +390,7 @@ class AdminService {
           if (message.email === 'admin@alphacoin.uk') {
             text = `SOVEREIGN DIRECTIVE (INTERNAL):\n\n${text}`;
           } else if (message.email === 'weave@alphacoin.uk') {
-            text = `QUEEN DIRECTIVE (INTERNAL):\n\n${text}`;
+            text = `WEAVE DIRECTIVE (INTERNAL):\n\n${text}`;
           } else {
             text = `From ${message.name} (${message.email}):\n\n${text}`;
           }
