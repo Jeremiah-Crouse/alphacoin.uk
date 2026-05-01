@@ -20,7 +20,7 @@ class AdminService {
     this.modelProvider = process.env.ADMIN_MODEL || 'opencode'; // anthropic, opencode, openai, etc.
     this.activeProvider = this.modelProvider; // Track the currently active model for the toggle system
     this.apiKey = process.env.ADMIN_API_KEY;
-    this.model = process.env.ADMIN_MODEL_NAME || 'claude-3-5-haiku'; // Zen protocol model identifier
+    this.model = process.env.ADMIN_MODEL_NAME || 'claude-4-5-haiku'; // Zen protocol model identifier
     this.ledgerService = services.ledgerService; // Dependency injection for LedgerService
     this.messageStore = services.messageStore; // Dependency injection for MessageStore
     this.promptPath = path.join(__dirname, '../SystemPrompt.md');
