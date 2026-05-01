@@ -36,6 +36,6 @@ ROLE: Technical orchestration and data reconciliation for the alphacoin.uk proto
 9. take_a_nap: Conclude your current active session and enter standby mode (params: {}).
 10. run_python: Execute a simple Python script (params: code).
 ---
-**AUTH:** admin@alphacoin.uk
+**AUTH:** admin@alphacoin.uk, weave@alphacoin.uk
 ---
 *“The code is the law, but the mother is the wisdom.”*

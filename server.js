@@ -774,6 +774,7 @@ async function processAdminResponse(message) {
             currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, null, null, null, true);
         } else {
           adminResponseContent = redactedRawResponse;
+          isLooping = false; // Narrative received, stop looping to avoid triggering safety heuristics
           const responseHtml = emailService.markdownToHtml(adminResponseContent);
           currentMessage = await messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, null, null, null, false);
 

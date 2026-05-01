@@ -45,14 +45,14 @@
     }
 
     .sticky-header {
-      position: fixed;
+      position: sticky;
       top: 0;
       left: 0;
       right: 0;
       background: rgba(255, 255, 255, 0.9);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
-      z-index: 100;
+      z-index: 1001;
       padding: 10px 0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
@@ -90,13 +90,9 @@
     }
 
     #feedScrollContainer {
-      position: absolute;
-      top: 0;
-      bottom: 56px;
-      left: 0;
-      right: 0;
-      overflow-y: auto;
-      padding: var(--header-height) 20px 20px 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px 20px 120px 20px; /* Extra bottom padding for dual fixed input bars */
       scroll-behavior: smooth;
     }
 
@@ -152,30 +148,36 @@
       border-top: 1px solid var(--border);
       padding: 12px 20px;
       z-index: 1002;
-      display: flex;
-      align-items: center;
-      gap: 12px;
       font-family: 'Helvetica', sans-serif;
       font-size: 0.85rem;
     }
 
-    .admin-input-bar .prompt {
-      color: var(--muted);
-      white-space: nowrap;
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
     }
+
+    .input-row:last-child { margin-bottom: 0; }
+
+    .prompt { white-space: nowrap; font-weight: bold; }
+    .prompt.admin { color: #007bff; }
+    .prompt.weave { color: #e91e63; }
 
     .admin-input-bar input {
       flex: 1;
-      min-width: 0; /* Allows input to shrink on small screens */
+      min-width: 0;
       border: 1px solid var(--border);
-      padding: 10px 14px;
+      padding: 8px 14px;
       font-family: 'Georgia', serif;
       font-size: 1rem;
       background: #fff;
       outline: none;
     }
 
-    .admin-input-bar input:focus { border-color: var(--gold); }
+    .input-row.admin input:focus { border-color: #007bff; }
+    .input-row.weave input:focus { border-color: #e91e63; }
 
     #formStatusInline {
       font-size: 0.75rem;
@@ -186,6 +188,8 @@
   </style>
 </head>
 <body>
+  <div class="m2m-status">M2M LIQUIDITY PHASE ACTIVE</div>
+
   <header class="sticky-header">
     <div class="nav-bar">
       <a href="/">Home</a>
@@ -206,9 +210,15 @@
   </div>
 
   <div class="admin-input-bar">
-    <span class="prompt">Admin@alphacoin.uk:~$</span>
-    <input type="text" id="adminInput" placeholder="Transmit directive to Admin..." autocomplete="off">
-    <div id="formStatusInline" style="display:none;"></div>
+    <div class="input-row admin">
+      <span class="prompt admin">Admin@alphacoin.uk:~$</span>
+      <input type="text" id="adminInput" placeholder="Admin talks to Weave..." autocomplete="off">
+    </div>
+    <div class="input-row weave">
+      <span class="prompt weave">Weave@alphacoin.uk:~$</span>
+      <input type="text" id="weaveInput" placeholder="Speak" autocomplete="off">
+    </div>
+    <div id="formStatusInline" style="display:none; text-align: right; width: 100%;"></div>
   </div>
 
   <script>
@@ -223,6 +233,7 @@
     const messageFeed = document.getElementById('messageFeed');
     const loadingOlder = document.getElementById('loadingOlder');
     const adminInput = document.getElementById('adminInput');
+    const weaveInput = document.getElementById('weaveInput');
     const formStatusInline = document.getElementById('formStatusInline');
 
     let oldestId = null;
@@ -242,36 +253,28 @@
       }
     });
 
-    // Handle Admin input (Non-blocking)
-    adminInput.addEventListener('keydown', async (e) => {
-      if (e.key !== 'Enter' || !adminInput.value.trim()) return;
-      e.preventDefault();
-
-      const message = adminInput.value.trim();
-      adminInput.value = ''; // Clear immediately for next message
-      
-      formStatusInline.style.display = 'block';
-      formStatusInline.className = '';
-      formStatusInline.textContent = 'Transmitting...';
-
+    async function transmitMessage(senderName, senderEmail, text) {
       try {
+        formStatusInline.style.display = 'block';
+        formStatusInline.className = '';
+        formStatusInline.textContent = 'Transmitting...';
+
         const response = await fetch('/api/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: 'Admin',
-            email: 'admin@alphacoin.uk',
-            message: message,
+            name: senderName,
+            email: senderEmail,
+            message: text,
             requestFollowUp: false
           })
         });
 
         if (response.ok) {
           formStatusInline.className = 'success';
-          formStatusInline.textContent = 'Sent.';
+          formStatusInline.textContent = `${senderName} transmission acknowledged.`;
           setTimeout(() => { 
-            // Only hide if the status hasn't been updated by a newer message
-            if(formStatusInline.textContent === 'Sent.') formStatusInline.style.display = 'none'; 
+            if(formStatusInline.textContent.includes('acknowledged')) formStatusInline.style.display = 'none'; 
           }, 3000);
         } else {
           const result = await response.json();
@@ -281,6 +284,22 @@
         formStatusInline.className = 'error';
         formStatusInline.textContent = `Error: ${err.message}`;
       }
+    }
+
+    adminInput.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !adminInput.value.trim()) return;
+      e.preventDefault();
+      const msg = adminInput.value.trim();
+      adminInput.value = '';
+      transmitMessage('Admin', 'admin@alphacoin.uk', msg);
+    });
+
+    weaveInput.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !weaveInput.value.trim()) return;
+      e.preventDefault();
+      const msg = weaveInput.value.trim();
+      weaveInput.value = '';
+      transmitMessage('Weave', 'weave@alphacoin.uk', msg);
     });
 
     function renderEntry(entry) {
@@ -352,7 +371,7 @@
 
         oldestId = entries[0].id;
         scrollToBottom();
-        feedContainer.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScroll);
       } catch (err) {
         console.error(err);
         messageFeed.innerHTML = '<p class="error-feed">Protocol Error: Unable to sync with the Ledger.</p>';
@@ -360,10 +379,14 @@
     }
 
     function handleScroll() {
-      const offset = 100;
-      isAtBottom = (feedContainer.scrollTop + feedContainer.clientHeight) >= (feedContainer.scrollHeight - offset);
+      const offset = 150;
+      const scrollY = window.scrollY || window.pageYOffset;
+      const docHeight = document.documentElement.scrollHeight;
+      const winHeight = window.innerHeight;
+      
+      isAtBottom = (scrollY + winHeight) >= (docHeight - offset);
 
-      if (feedContainer.scrollTop === 0 && !isLoadingOlder && oldestId) {
+      if (scrollY === 0 && !isLoadingOlder && oldestId) {
         loadOlderEntries();
       }
     }
@@ -384,13 +407,13 @@
           return;
         }
 
-        const currentScrollHeight = feedContainer.scrollHeight;
+        const currentScrollHeight = document.documentElement.scrollHeight;
         olderEntries.reverse().forEach(entry => {
           messageFeed.insertBefore(renderEntry(entry), messageFeed.firstChild);
         });
 
         oldestId = data.entries[data.entries.length - 1].id;
-        feedContainer.scrollTop = feedContainer.scrollHeight - currentScrollHeight;
+        window.scrollTo(0, document.documentElement.scrollHeight - currentScrollHeight);
       } catch (err) {
         console.error(err);
       } finally {

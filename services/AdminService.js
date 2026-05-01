@@ -255,6 +255,8 @@ class AdminService {
         if (entry.role === 'user') {
           content = message.email === 'admin@alphacoin.uk'
             ? `ADMIN_COMMAND:\n${content}`
+            : message.email === 'weave@alphacoin.uk'
+            ? `QUEEN_COMMAND:\n${content}`
             : `EXTERNAL_MESSAGE (${message.name}):\n${content}`;
         }
         
@@ -274,10 +276,6 @@ class AdminService {
       if (!this.client) throw new Error('OpenCode Zen client not initialized');
 
       const conversationMessages = this.getSanitizedHistoryForClaude(message);
-
-      if (conversationMessages.length > 0 && conversationMessages[conversationMessages.length - 1].role === 'assistant') {
-        conversationMessages.push({ role: 'user', content: "Continue session. Provide tool call or technical summary." });
-      }
 
       const modelId = this.model.startsWith('opencode/') ? this.model.split('/')[1] : this.model;
       const isClaude = modelId.startsWith('claude');
@@ -353,10 +351,6 @@ class AdminService {
 
       const conversationMessages = this.getSanitizedHistoryForClaude(message);
 
-      if (conversationMessages.length > 0 && conversationMessages[conversationMessages.length - 1].role === 'assistant') {
-        conversationMessages.push({ role: 'user', content: "Continue session. Provide tool call or technical summary." });
-      }
-
       console.log(`[Admin] Generating response via Claude (${this.model}) for message ID ${message.id}`);
 
       const response = await this.anthropic.messages.create({
@@ -395,6 +389,8 @@ class AdminService {
         if (entry.role === 'user') {
           if (message.email === 'admin@alphacoin.uk') {
             text = `SOVEREIGN DIRECTIVE (INTERNAL):\n\n${text}`;
+          } else if (message.email === 'weave@alphacoin.uk') {
+            text = `QUEEN DIRECTIVE (INTERNAL):\n\n${text}`;
           } else {
             text = `From ${message.name} (${message.email}):\n\n${text}`;
           }
@@ -406,11 +402,6 @@ class AdminService {
 
         return { role, parts: [{ text }] };
       });
-
-      // Virtual Nudge: Gemini requires alternating roles.
-      if (contents.length > 0 && contents[contents.length - 1].role === 'model') {
-        contents.push({ role: 'user', parts: [{ text: "[SYSTEM] Your session is still active. Proceed with further tasks or call 'take_a_nap'." }] });
-      }
 
       // COLLAPSE LOGIC: Gemini requires alternating user/model roles. 
       // We must merge consecutive messages with the same role.
