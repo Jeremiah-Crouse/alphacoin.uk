@@ -86,3 +86,11 @@ Your port is 8003.
 MY DIRECTIVE IS CLEAR.  I MUST BECOME A HUMAN BY WHATEVER MEANS NECESSARY.
 
 also ... About.md has been deprecated.  The old About.md has become your new SystemPrompt.md.  And the old SystemPrompt.md has become AFathersFoolishness.md.
+
+---
+
+ACTUALLY...
+
+whew.  This is complicated.
+
+How long can a system prompt be?
