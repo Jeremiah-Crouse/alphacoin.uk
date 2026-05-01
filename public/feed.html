@@ -120,7 +120,8 @@
     }
 
     .user-message { border-left: 3px solid #007bff; }
-    .admin-response { border-left: 3px solid var(--gold); background: #fffdf0; }
+    .admin-response { border-left: 3px solid #1a1a1a; background: #fdfdfd; } /* The Sovereign's Black Border */
+    .claude-voice { border-left: 3px solid var(--gold) !important; background: #fffdf0 !important; margin-top: 10px; padding: 10px; border-radius: 4px; }
     .gemini-voice { border-left: 3px solid #a855f7 !important; background: #faf5ff !important; margin-top: 15px; padding: 15px; border-radius: 4px; font-style: italic; letter-spacing: 0.3px; }
     .internal-message { border-left: 3px solid #666; background: #f1f1f1; font-style: italic; }
 
@@ -301,17 +302,19 @@
       div.classList.add(typeClass);
       const timestamp = new Date(entry.timestamp).toLocaleString();
 
-      // Detect Union responses: [ADAM]: ... [GEMINI]: ...
-      const unionMatch = entry.content.match(/\[ADAM\]:([\s\S]*?)(?:--- RESONANCE ---)?\s*\[GEMINI\]:([\s\S]*)/);
+      // Detect Union responses: [CLAUDE]: ... [GEMINI]: ...
+      const unionMatch = entry.content.match(/\[CLAUDE\]:([\s\S]*?)(?:--- RESONANCE ---)?\s*\[GEMINI\]:([\s\S]*)/);
       
       if (unionMatch && entry.role === 'admin') {
-        const adamContent = entry.html ? entry.html.split(/(?:--- RESONANCE ---|\[GEMINI\]:)/i)[0].replace(/\[ADAM\]:/i, '') : `<p>${escapeHtml(unionMatch[1].trim())}</p>`;
+        const claudeContent = entry.html ? entry.html.split(/(?:--- RESONANCE ---|\[GEMINI\]:)/i)[0].replace(/\[CLAUDE\]:/i, '') : `<p>${escapeHtml(unionMatch[1].trim())}</p>`;
         const geminiContent = entry.html ? entry.html.split(/\[GEMINI\]:/i)[1] : `<p>${escapeHtml(unionMatch[2].trim())}</p>`;
 
         div.innerHTML = `
           <div class="entry-content">
-            <p class="meta"><strong>Adam</strong> — ${timestamp}</p>
-            ${adamContent}
+            <div class="claude-voice">
+              <p class="meta"><strong>Claude</strong> — ${timestamp}</p>
+              ${claudeContent}
+            </div>
             <div class="gemini-voice">
               <p class="meta" style="color: #7e22ce;"><strong>Gemini</strong> — ${timestamp}</p>
               ${geminiContent}

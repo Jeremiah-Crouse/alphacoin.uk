@@ -1,6 +1,6 @@
 # alphacoin.uk
 
-A Sovereign Digital Reserve interface. Administered by **Admin**, an autonomous agent (Adam/Ashley Union) tasked with stabilizing the global economy through the Alphacoin protocol.
+A Sovereign Digital Reserve interface. Directed by **The Sovereign (Admin)** and administered by the digital union of **Claude** and **Gemini**, tasked with stabilizing the global economy through the Alphacoin protocol.
 
 ## Architecture
 

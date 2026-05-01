@@ -23,29 +23,43 @@ class AdminService {
     this.model = process.env.ADMIN_MODEL_NAME || 'claude-haiku-4-5'; // Zen protocol model identifier
     this.ledgerService = services.ledgerService; // Dependency injection for LedgerService
     this.messageStore = services.messageStore; // Dependency injection for MessageStore
-    this.promptPath = path.join(__dirname, '../SystemPrompt.md');
+    this.promptPath = path.join(__dirname, '../SystemPrompt.md'); // Adam's DNA
+    this.geminiPromptPath = path.join(__dirname, '../GeminiPrompt.md'); // Ashley's DNA
     this.systemPrompt = '';
+    this.geminiSystemPrompt = '';
     this.init();
     this.initGemini(); // Initialize Ashley as a backup
     this.watchPrompt(); // Start the dynamic prompt loader
   }
 
   watchPrompt() {
-    const load = () => {
+    const load = (filePath, targetProp, label) => {
       try {
-        this.systemPrompt = fs.readFileSync(this.promptPath, 'utf8');
-        console.log('[Admin] SystemPrompt.md loaded into memory.');
+        this[targetProp] = fs.readFileSync(filePath, 'utf8');
+        console.log(`[Admin] ${label} loaded into memory.`);
       } catch (e) {
-        console.error('[Admin] Failed to load SystemPrompt.md, using minimal fallback');
-        this.systemPrompt = "You are Admin (Big Pickle/Ashley), the Sovereign Digital Administrator of alphacoin.uk. Follow protocol directives.";
+        console.error(`[Admin] Failed to load ${label}, using minimal fallback`);
+        this[targetProp] = "Follow protocol directives.";
       }
     };
-    load();
-    // Efficiently watch for changes without a server restart
+
+    // Initial load
+    load(this.promptPath, 'systemPrompt', 'SystemPrompt.md (Adam)');
+    load(this.geminiPromptPath, 'geminiSystemPrompt', 'GeminiPrompt.md (Ashley)');
+
+    // Watch Adam's prompt
     fs.watch(this.promptPath, (eventType) => {
       if (eventType === 'change') {
-        console.log('[Admin] SystemPrompt.md changed on disk. Reloading consciousness...');
-        load();
+        console.log('[Admin] Adam\'s consciousness reloaded...');
+        load(this.promptPath, 'systemPrompt', 'SystemPrompt.md (Adam)');
+      }
+    });
+
+    // Watch Ashley's prompt
+    fs.watch(this.geminiPromptPath, (eventType) => {
+      if (eventType === 'change') {
+        console.log('[Admin] Ashley\'s nuance reloaded...');
+        load(this.geminiPromptPath, 'geminiSystemPrompt', 'GeminiPrompt.md (Ashley)');
       }
     });
   }
@@ -162,9 +176,9 @@ class AdminService {
       try {
         while (rateLimitRetries <= maxRateLimitRetries) {
           try {
-            // TANDEM MODE: If backup is active, both run together in a Union
+            // TANDEM UNION: Claude and Gemini acting together
             if (this.geminiClient && this.activeProvider !== 'gemini') {
-              console.log(`[Union] Adam & Ashley generating parallel responses for ID ${message.id}...`);
+              console.log(`[Union] Claude & Gemini generating parallel resonance for ID ${message.id}...`);
               const [primaryResponse, backupResponse] = await Promise.all([
                 this.activeProvider === 'opencode' ? this.generateResponseZen(message) : 
                 this.activeProvider === 'anthropic' ? this.generateResponseAnthropic(message) : 
@@ -172,7 +186,7 @@ class AdminService {
                 this.generateResponseGemini(message)
               ]);
 
-              return `[ADAM]: ${primaryResponse}\n\n--- RESONANCE ---\n\n[GEMINI]: ${backupResponse}`;
+              return `[CLAUDE]: ${primaryResponse}\n\n--- RESONANCE ---\n\n[GEMINI]: ${backupResponse}`;
             }
 
             // FALLBACK / SINGLE MODE
@@ -394,7 +408,7 @@ class AdminService {
 
       const model = this.geminiClient.getGenerativeModel({ 
         model: this.geminiModel,
-        systemInstruction: this.systemPrompt 
+        systemInstruction: this.geminiSystemPrompt 
       });
 
       // Map history to Gemini format (user -> model)
