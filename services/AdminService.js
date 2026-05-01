@@ -178,7 +178,7 @@ class AdminService {
           try {
             // TANDEM UNION: Claude and Gemini acting together
             if (this.geminiClient && this.activeProvider !== 'gemini') {
-              console.log(`[Union] Claude & Gemini generating parallel resonance for ID ${message.id}...`);
+              console.log(`[Union] Claude & Gemini generating parallel resonance for message ID ${message.id}...`);
               const [primaryResponse, backupResponse] = await Promise.all([
                 this.activeProvider === 'opencode' ? this.generateResponseZen(message) : 
                 this.activeProvider === 'anthropic' ? this.generateResponseAnthropic(message) : 

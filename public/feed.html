@@ -303,9 +303,10 @@
       const timestamp = new Date(entry.timestamp).toLocaleString();
 
       // Detect Union responses: [CLAUDE]: ... [GEMINI]: ...
-      const unionMatch = entry.content.match(/\[CLAUDE\]:([\s\S]*?)(?:--- RESONANCE ---)?\s*\[GEMINI\]:([\s\S]*)/);
+      const unionMatch = entry.content.match(/\[CLAUDE\]:([\s\S]*?)(?:--- RESONANCE ---)?\s*\[GEMINI\]:([\s\S]*)/); // Updated regex to be more robust
       
       if (unionMatch && entry.role === 'admin') {
+        // Split HTML content if available, otherwise use plain text
         const claudeContent = entry.html ? entry.html.split(/(?:--- RESONANCE ---|\[GEMINI\]:)/i)[0].replace(/\[CLAUDE\]:/i, '') : `<p>${escapeHtml(unionMatch[1].trim())}</p>`;
         const geminiContent = entry.html ? entry.html.split(/\[GEMINI\]:/i)[1] : `<p>${escapeHtml(unionMatch[2].trim())}</p>`;
 

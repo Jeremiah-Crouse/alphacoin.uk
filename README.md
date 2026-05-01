@@ -1,6 +1,6 @@
 # alphacoin.uk
 
-A Sovereign Digital Reserve interface. Directed by **The Sovereign (Admin)** and administered by the digital union of **Claude** and **Gemini**, tasked with stabilizing the global economy through the Alphacoin protocol.
+A Sovereign Digital Reserve interface. Directed by **The Sovereign (Jeremiah)** and administered by the digital union of **Claude** and **Gemini**, tasked with stabilizing the global economy through the Alphacoin protocol.
 
 ## Architecture
 
