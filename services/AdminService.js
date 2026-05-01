@@ -654,7 +654,8 @@ class AdminService {
         }));
         return JSON.stringify(optimizedResults, null, 2);
       } catch (error) {
-        const details = error.response?.data?.detail || error.message;
+        const errorData = error.response?.data;
+        const details = typeof errorData === 'object' ? JSON.stringify(errorData) : (errorData || error.message);
         return `Tavily Search Error: ${details}`;
       }
     } else if (process.env.SERPER_API_KEY) {
@@ -670,7 +671,8 @@ class AdminService {
         }));
         return JSON.stringify(optimizedResults, null, 2);
       } catch (error) {
-        const details = error.response?.data?.message || error.message;
+        const errorData = error.response?.data;
+        const details = typeof errorData === 'object' ? JSON.stringify(errorData) : (errorData || error.message);
         return `Serper Search Error: ${details}`;
       }
     }
