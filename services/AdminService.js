@@ -274,6 +274,7 @@ class AdminService {
       const isGemini = modelId.startsWith('gemini');
 
       let endpoint = '/chat/completions';
+      let customHeaders = {};
       let payload = {
         model: this.model,
         max_tokens: 4096,
@@ -284,6 +285,11 @@ class AdminService {
         endpoint = '/messages';
         payload.system = this.systemPrompt;
         payload.messages = conversationMessages;
+        // Claude-style endpoints on OpenCode require Anthropic-specific headers
+        customHeaders = {
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01'
+        };
       } else {
         if (isGpt) endpoint = '/responses';
         if (isGemini) endpoint = `/models/${modelId}`;
@@ -296,7 +302,10 @@ class AdminService {
 
       console.log(`[Admin] Generating response via Zen Protocol (${this.model}) for message ID ${message.id} (Conversation length: ${conversationMessages.length})`);
 
-      const response = await this.client.post(endpoint, payload, { timeout: 60000 });
+      const response = await this.client.post(endpoint, payload, { 
+        headers: customHeaders,
+        timeout: 60000 
+      });
 
       console.log(`[Admin] Zen Protocol Response Status: ${response.status}`);
       
