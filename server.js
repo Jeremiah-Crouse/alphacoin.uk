@@ -883,10 +883,10 @@ async function getQuantumSeed() {
         try {
             console.log('[Quantum] Buffer low. Fetching fresh entropy from Germany...');
             const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=64&format=BINARY', { timeout: 5000 });
-            qrngBuffer += response.data.qrn;
+            qrngBuffer += String(response.data.qrn).replace(/[^01]/g, '');
         } catch (error) {
             console.warn('[Quantum] API unavailable, injecting pseudorandom entropy.');
-            qrngBuffer += Math.random().toString(2).slice(2, 10);
+            qrngBuffer += Math.random().toString(2).split('.')[1].slice(0, 8);
         }
     }
 
