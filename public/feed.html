@@ -271,6 +271,21 @@
       }
     });
 
+    // Quantum Ticker: The "Movement" of the Protocol
+    socket.on('quantum_stream', (data) => {
+      const ticker = document.getElementById('quantumTicker');
+      if (!ticker) return;
+      const bitSpan = document.createElement('span');
+      bitSpan.textContent = data.bits;
+      bitSpan.style.opacity = '0.4';
+      ticker.appendChild(bitSpan);
+      
+      // Maintain a window of the last 128 bits (16 frames)
+      if (ticker.childNodes.length > 16) {
+        ticker.removeChild(ticker.firstChild);
+      }
+    });
+
     async function transmitMessage(senderName, senderEmail, text) {
       try {
         formStatusInline.style.display = 'block';
