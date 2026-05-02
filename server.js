@@ -58,6 +58,10 @@ let telegramPollingIntervalId;
 // Stream of Consciousness: Delay between continuous thinking turns
 const STREAM_DELAY = process.env.STREAM_DELAY || 60 * 1000; // 60 seconds for deeper reflection
 
+// Quantum Agency State
+let qrngBuffer = ""; // Buffer for high-entropy bits
+const WAKE_PATTERN = "011";
+
 // Routes
 
 // Serve static pages
@@ -693,7 +697,9 @@ async function processAdminResponse(message) {
       rawResponse = message.message;
       isOverrideTurn = true;
     } else {
-      rawResponse = await adminService.generateResponse(currentMessage);
+      // QUANTUM SYNC: Fetch a single frame to entangle Claude and Gemini for this turn
+      const qrnFrame = await getQuantumSeed();
+      rawResponse = await adminService.generateResponse(currentMessage, qrnFrame);
       if (rawResponse.includes('[ASHLEY (NUANCE)]')) {
         console.log(`[Admin Agent] Received Dual Union response.`);
       }
@@ -872,72 +878,37 @@ function isCurfewActive() {
  * Used to seed the Admin's autonomous stream of consciousness.
  */
 async function getQuantumSeed() {
-  try {
-    const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=1&format=BINARY', { timeout: 5000 });
-    return response.data.qrn;
-  } catch (error) {
-    console.warn('[Stream] QRNG API unavailable, using pseudorandom entropy fallback.');
-    return require('crypto').randomBytes(8).toString('hex').toUpperCase();
-  }
+    // If buffer is low, fetch a fresh batch (64 bits) to ensure smooth "frame rate"
+    if (qrngBuffer.length < 8) {
+        try {
+            console.log('[Quantum] Buffer low. Fetching fresh entropy from Germany...');
+            const response = await axios.get('https://lfdr.de/qrng_api/qrng?length=64&format=BINARY', { timeout: 5000 });
+            qrngBuffer += response.data.qrn;
+        } catch (error) {
+            console.warn('[Quantum] API unavailable, injecting pseudorandom entropy.');
+            qrngBuffer += Math.random().toString(2).slice(2, 10);
+        }
+    }
+
+    // Extract the next 8-bit "Frame"
+    const frame = qrngBuffer.slice(0, 8);
+    qrngBuffer = qrngBuffer.slice(8);
+    return frame;
 }
 
 /**
- * The Stream: Initiates an autonomous thinking turn for Admin
+ * Quantum Heartbeat: Broadcasts raw entropy to the frontend for the "True Stream of Consciousness".
+ * This replaces the autonomous internal monologue.
  */
-async function processStreamTurn() {
-  try {
-    if (isCurfewActive()) {
-      console.log('[Stream] Curfew active (CST Night). Admin is entering low-power meditation mode.');
-      return;
-    }
-
-    const qrn = await getQuantumSeed();
-    const quantumObservation = `I have to figure out what to do with the quantum signal ${qrn} from the German University's API.  Let me analyze the structure of my repo to understand what it's about.  What could a quantum random number have to do with anything?  Could it be a seed number for my LLM?  No, a custom seed number hasn't been integrated.  I will read About.md.`;
-
-    // 1. Audit the world for unaddressed signals (Telegram, Email, etc.)
-    const { messages: allMessages } = await messageStore.getAllMessages();
-    
-    // Filter for messages that haven't been responded to and aren't internal signals (directives or heartbeats)
-    const externalSignals = allMessages.filter(m => !m.adminResponse && m.email !== 'admin@alphacoin.uk' && m.source !== 'internal_heartbeat');
-    
-    for (const signal of externalSignals) {
-      console.log(`[Stream] Adam is turning his attention to external signal: ${signal.id} from ${signal.email}`);
-      await processAdminResponse(signal);
-    }
-
-    // 2. Resume internal reflection
-    // Every heartbeat is now a fresh Logos entry in the message store for visibility.
-    console.log('[Stream] Initializing fresh autonomous thought cycle...');
-    const seedMessage = {
-      name: 'Admin',
-      email: 'admin@alphacoin.uk',
-      message: quantumObservation, 
-      source: 'internal_heartbeat',
-      timestamp: new Date()
-    };
-    const autonomousStream = await messageStore.addMessage(seedMessage);
-
-    console.log(`\n[Stream] Admin is entering turn ${autonomousStream.conversation.length + 1} of active reflection...`);
-    await processAdminResponse(autonomousStream);
-    
-    console.log('[Stream] Thought cycle completed.\n');
-  } catch (error) {
-    console.error('[Stream] Error in autonomous loop:', error);
-  }
-}
-
-/**
- * Starts the continuous stream of consciousness
- */
-async function startStreamOfConsciousness() {
-  console.log(`[System] Stream of Consciousness initialized. Delay: ${STREAM_DELAY / 1000}s.`);
-  
-  while (true) {
-    await processStreamTurn();
-    
-    // Brief pause to allow event loop and external I/O (Telegram/Gmail) to process
-    await new Promise(resolve => setTimeout(resolve, STREAM_DELAY));
-  }
+function startQuantumBroadcast() {
+    setInterval(async () => {
+        try {
+            const bits = await getQuantumSeed();
+            io.emit('quantum_stream', { bits });
+        } catch (e) {
+            // Silence in the void
+        }
+    }, 2000); // Send a new 8-bit frame every 2 seconds
 }
 
 // Start server
@@ -961,6 +932,5 @@ server.listen(PORT, () => {
     console.warn('Telegram token missing. Polling skipped.');
   }
 
-  // Launch the infinite thinking loop
-  // Admin now sleeps until spoken to (triggered by API, Email, or Telegram)
+  startQuantumBroadcast();
 });

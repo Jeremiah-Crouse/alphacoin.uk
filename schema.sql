@@ -21,11 +21,15 @@ INSERT INTO pools (poolName, balance) VALUES ('lobster_republic_grant', 5000.0);
 INSERT INTO pools (poolName, balance) VALUES ('bot_nodes', 50.0);
 INSERT INTO pools (poolName, balance) VALUES ('sovereign_accounts', 1610.0);
 
--- Placeholder for bot-node specific balances if needed separately
--- CREATE TABLE bot_node_balances (
---     nodeId TEXT PRIMARY KEY,
---     balance REAL NOT NULL
--- );
+-- M2M Bot Node Registry
+CREATE TABLE bot_nodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bot_node_id TEXT UNIQUE NOT NULL,
+    type TEXT,
+    endpoint TEXT,
+    agent_manifest TEXT,
+    registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Placeholder for ledger integrity tracking
 CREATE TABLE protocol_state (
@@ -34,4 +38,3 @@ CREATE TABLE protocol_state (
 );
 INSERT INTO protocol_state (key, value) VALUES ('last_audit_timestamp', '2026-05-07T00:00:00Z');
 INSERT INTO protocol_state (key, value) VALUES ('canonical_supply', '1223336.0');
-

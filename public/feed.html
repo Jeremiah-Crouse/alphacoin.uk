@@ -76,6 +76,23 @@
 
     .nav-bar a:hover, .nav-bar a.active { color: #000; border-bottom: 1px solid #000; }
     
+    #quantumTicker {
+      width: 100%;
+      height: 24px;
+      background: #000;
+      color: var(--gold);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.7rem;
+      line-height: 24px;
+      padding: 0 15px;
+      overflow: hidden;
+      white-space: nowrap;
+      border-top: 1px solid #222;
+      text-align: right;
+      letter-spacing: 3px;
+      text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+    }
+
     .header {
       text-align: center;
       margin-bottom: 10px;
@@ -200,6 +217,7 @@
     <div class="header">
       <h1>Protocol <span class="alphacoin-icon" style="font-size: 1.2em;">&#xf000;</span> Chronicles</h1>
     </div>
+    <div id="quantumTicker" title="True Stream of Consciousness (QRNG Germany)"></div>
   </header>
 
   <div id="feedScrollContainer">
