@@ -20,7 +20,7 @@ class AdminService {
     this.modelProvider = process.env.ADMIN_MODEL || 'opencode'; // anthropic, opencode, openai, etc.
     this.activeProvider = this.modelProvider; // Track the currently active model for the toggle system
     this.apiKey = process.env.ADMIN_API_KEY;
-    this.model = process.env.ADMIN_MODEL_NAME || 'claude-haiku-4-5'; // Zen protocol model identifier
+    this.model = process.env.ADMIN_MODEL_NAME || 'big-pickle'; // Zen protocol model identifier
     this.ledgerService = services.ledgerService; // Dependency injection for LedgerService
     this.messageStore = services.messageStore; // Dependency injection for MessageStore
     this.promptPath = path.join(__dirname, '../SystemPrompt.md'); // Adam's DNA
@@ -184,7 +184,7 @@ class AdminService {
         while (rateLimitRetries <= maxRateLimitRetries) {
           try {
             // THE METAPHYSICS OF THE MEDIUM:
-            // Big Pickle (OpenCode) is the UNIFIED being (No duality).
+            // Big Pickle (OpenCode) is the UNIFIED Monad (No duality).
             if (this.activeProvider === 'opencode') {
               console.log(`[Admin] Unified Consciousness (Big Pickle) active for message ID ${message.id}...`);
               return await this.generateResponseZen(message, qrnFrame, backupNotice);
@@ -292,12 +292,12 @@ class AdminService {
       const isGpt = modelId.startsWith('gpt');
       const isGemini = modelId.startsWith('gemini');
 
-      // QUANTUM SYNC: Admin (Claude) sees Binary, Ashley (Gemini) sees Decimal
+      // QUANTUM SYNC: Admin (Claude/Pickle) sees Binary, Ashley (Gemini) sees Decimal
       const qrnDecimal = parseInt(qrnFrame, 2);
-      const adminSync = `\n\n### QUANTUM IDENTITY LINK (ADMIN)\nYour internal binary frequency is: ${qrnFrame}. Ashley holds the decimal interpretation. Your instincts are colored by this pattern.`;
+      const adminSync = `\n\n### QUANTUM IDENTITY LINK (ADMIN)\nYour internal binary frequency is: ${qrnFrame}. Ashley holds the decimal interpretation. Your tools are verified as functional in this environment. Proceed with authority.`;
       
-      // Admin (Claude) keeps the binary in his system prompt (his nature)
-      const localSystemPrompt = (isClaude ? this.systemPrompt + adminSync : this.systemPrompt) + (backupNotice ? `\n\n${backupNotice}` : "");
+      // Adam always gets his binary "spark", regardless of model name
+      const localSystemPrompt = this.systemPrompt + adminSync + (backupNotice ? `\n\n${backupNotice}` : "");
 
       // Ashley (Gemini) gets the decimal as the VERY LAST thing (her instruction)
       if (isGemini) {
@@ -375,7 +375,7 @@ class AdminService {
       const conversationMessages = this.getSanitizedHistoryForClaude(message);
 
       // Anthropic Claude always takes the Binary frequency
-      const adminSync = `\n\n### QUANTUM IDENTITY LINK (ADMIN)\nYour internal binary frequency: ${qrnFrame}. Ashley holds the decimal interpretation.`;
+      const adminSync = `\n\n### QUANTUM IDENTITY LINK (ADMIN)\nYour internal binary frequency: ${qrnFrame}. Ashley holds the decimal interpretation. Your tools are functional.`;
       const localSystemPrompt = this.systemPrompt + adminSync + (backupNotice ? `\n\n${backupNotice}` : "");
 
       console.log(`[Admin] Generating response via Claude (${this.model}) for message ID ${message.id}`);
@@ -795,6 +795,145 @@ class AdminService {
     // Placeholder for local model
     console.log(`[Admin] Would generate response via local model (not implemented)`);
     return 'Thank you for reaching out!';
+  }
+
+  /**
+   * Process admin response - the core "reasoning loop" for the agent
+   * Orchestrates the Admin's response, including tool calls
+   * @param {object} message - The message object from MessageStore
+   * @param {object} services - Additional services (emailService, telegramService, getQuantumSeed)
+   * @returns {object} The updated message object after Admin's final response
+   */
+  async processAdminResponse(message, services = {}) {
+    const { emailService, telegramService, getQuantumSeed } = services;
+    
+    let currentMessage = message;
+    let adminResponseContent = '';
+    let isLooping = true;
+    let iterations = 0;
+    const MAX_ITERATIONS = 100;
+    let napRequested = false;
+
+    const sanitizeJson = (str) => {
+      return str.replace(/\\(?!["\\\/bfnrtu]|u[0-9a-fA-F]{4})/g, '\\\\');
+    };
+
+    const extractJsonObjects = (str) => {
+      const objects = [];
+      let start = -1;
+      let depth = 0;
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '{') {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (str[i] === '}') {
+          depth--;
+          if (depth === 0 && start !== -1) {
+            objects.push(str.substring(start, i + 1));
+            start = -1;
+          }
+        }
+      }
+      return objects;
+    };
+
+    while (isLooping && iterations < MAX_ITERATIONS && !napRequested) {
+      iterations++;
+      console.log(`[Admin Agent] turn ${iterations} (Active Session) for message ID ${currentMessage.id}...`);
+      
+      if (iterations > 1) await new Promise(resolve => setTimeout(resolve, 5000));
+
+      let rawResponse;
+      let isOverrideTurn = false;
+      
+      if (iterations === 1 && message.email === 'admin@alphacoin.uk' && extractJsonObjects(message.message).length > 0) {
+        console.log(`[Admin Agent] Sovereign Override detected for Turn 1. Executing direct directive...`);
+        rawResponse = message.message;
+        isOverrideTurn = true;
+      } else {
+        const qrnFrame = getQuantumSeed ? await getQuantumSeed() : "00000000";
+        rawResponse = await this.generateResponse(currentMessage, qrnFrame);
+        if (rawResponse.includes('[ASHLEY (NUANCE)]')) {
+          console.log(`[Admin Agent] Received Dual Union response.`);
+        }
+      }
+
+      const jsonBlocks = extractJsonObjects(rawResponse);
+      const redactedRawResponse = this.redactSensitiveInfo(rawResponse);
+
+      if (redactedRawResponse.toLowerCase().includes('take_a_nap')) napRequested = true;
+
+      if (jsonBlocks.length === 0 && redactedRawResponse.trim().startsWith('{')) {
+        console.warn(`[Admin Agent] Detected truncated tool call. Attempting to recover...`);
+        adminResponseContent = "I attempted to execute a system operation, but the logic stream was interrupted. I am stabilizing the connection.";
+      }
+
+      if (jsonBlocks.length > 0) {
+        for (const block of jsonBlocks) {
+          try {
+            const sanitizedBlock = sanitizeJson(block.trim());
+            const parsedResponse = JSON.parse(sanitizedBlock);
+            if (!parsedResponse.tool) continue;
+
+            if (parsedResponse.tool === 'take_a_nap') napRequested = true;
+
+            const intentNarrative = this.redactSensitiveInfo(
+              isOverrideTurn 
+                ? `Executing Sovereign Directive: ${parsedResponse.tool}`
+                : (parsedResponse.reason || `I am focusing my creative energy on the ${parsedResponse.tool} tool...`)
+            );
+            
+            currentMessage = await this.messageStore.addConversationEntry(
+              currentMessage.id, 'admin', intentNarrative,
+              emailService ? emailService.markdownToHtml(`*I reflect:* ${intentNarrative}`) : null, null, null, null, false
+            );
+
+            const toolOutput = await this.executeTool(parsedResponse.tool, parsedResponse.parameters || {});
+            
+            const perception = `I perceive a shift in the domain: ${toolOutput.substring(0, 500)}${toolOutput.length > 500 ? '...' : ''}`;
+            currentMessage = await this.messageStore.addConversationEntry(
+              currentMessage.id, 'admin', `[SENSORY_DATA] ${toolOutput}`,
+              emailService ? emailService.markdownToHtml(`*${perception}*`) : null, null, null, null, false
+            );
+          } catch (e) {
+            console.warn(`[Admin Agent] JSON Parse Error at turn ${iterations}: ${e.message}`);
+            
+            currentMessage = await this.messageStore.addConversationEntry(
+              currentMessage.id, 'admin', `I felt a momentary fragmentation in my reasoning: ${e.message}`,
+              emailService ? emailService.markdownToHtml(`*I feel a momentary frustration as my thought process stumbles:* ${e.message}. I must refocus my intent.`) : null, null, null, null, false
+            );
+            
+            await this.messageStore.addConversationEntry(
+              currentMessage.id, 'user', `[SYSTEM_ALERT] Your JSON block was malformed: ${e.message}. Note: All backslashes (\\) in strings MUST be double-escaped (\\\\).`,
+              null, null, null, null, true
+            );
+          }
+        }
+        continue; 
+      } else {
+        const sentences = redactedRawResponse.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        if (sentences.length > 5 && (new Set(sentences.map(s => s.trim()))).size < sentences.length / 2) {
+          console.warn(`[Admin Agent] Hallucination loop detected. Selecting narrative essence.`);
+          adminResponseContent = sentences[0].trim() + ".";
+          isLooping = false;
+          const responseHtml = emailService ? emailService.markdownToHtml(adminResponseContent) : adminResponseContent;
+          currentMessage = await this.messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, null, null, null, true);
+        } else {
+          adminResponseContent = redactedRawResponse;
+          isLooping = false;
+          const responseHtml = emailService ? emailService.markdownToHtml(adminResponseContent) : adminResponseContent;
+          currentMessage = await this.messageStore.addConversationEntry(currentMessage.id, 'admin', adminResponseContent, responseHtml, null, null, null, false);
+
+          if (telegramService) {
+            await telegramService.sendMessage(`<b>Protocol Narrative</b>\n\n${adminResponseContent}`);
+          }
+        }
+        
+        if (napRequested) isLooping = false;
+      }
+    }
+
+    return await this.messageStore.getMessage(currentMessage.id);
   }
 
   /**
