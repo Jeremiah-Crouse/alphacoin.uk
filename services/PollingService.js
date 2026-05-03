@@ -1,18 +1,20 @@
 /**
  * PollingService
  * Handles Gmail and Telegram polling logic
- * Uses shared service instances from server.js
+ * Keeps server.js clean by abstracting polling operations
  */
 
+const EmailService = require('./EmailService');
+const TelegramService = require('./TelegramService');
 class PollingService {
   constructor(io, services = {}) {
-    this.io = io;
     this.emailService = services.emailService;
     this.telegramService = services.telegramService;
     this.messageStore = services.messageStore;
     this.ledgerService = services.ledgerService;
     this.adminService = services.adminService;
     this.quantumService = services.quantumService;
+    this.io = io;
 
     this.gmailPollingIntervalId = null;
     this.telegramPollingIntervalId = null;
@@ -20,13 +22,6 @@ class PollingService {
     // Polling intervals
     this.GMAIL_POLLING_INTERVAL = process.env.GMAIL_POLLING_INTERVAL || 5 * 60 * 1000;
     this.TELEGRAM_POLLING_INTERVAL = 90 * 1000; // 90s for lighter load
-
-    // Setup Socket.io listener for Chronicles feed (only if messageStore is available)
-    if (this.messageStore) {
-      this.messageStore.on('entry_added', (entry) => {
-        io.emit('feed_update', entry);
-      });
-    }
   }
 
   /**
