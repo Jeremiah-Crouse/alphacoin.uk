@@ -120,6 +120,19 @@ app.get('/api/strategy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'strategy.md'));
 });
 
+// API: Feed for Chronicles (Initial Load and Pagination)
+app.get('/api/feed', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const beforeId = req.query.beforeId || null;
+    const entries = await messageStore.getFeed(limit, beforeId);
+    res.json({ entries });
+  } catch (error) {
+    console.error('[API] Error fetching feed:', error);
+    res.status(500).json({ error: 'Failed to load Chronicles feed' });
+  }
+});
+
 app.get('/api/system-prompt', (req, res) => {
   res.sendFile(path.join(__dirname, 'SystemPrompt.md'));
 });
