@@ -89,6 +89,7 @@
       white-space: nowrap;
       border-top: 1px solid #222;
       text-align: left;
+      opacity: 0.4;
       text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
     }
 
@@ -271,17 +272,17 @@
     });
 
     // Quantum Ticker: The "Movement" of the Protocol
+    const ticker = document.getElementById('quantumTicker');
+    const bitWidth = Math.ceil(window.innerWidth / 7); // Calculate bits needed to fill screen
+    let bitStream = Array.from({length: bitWidth}, () => Math.round(Math.random())).join('');
+    ticker.textContent = bitStream;
+
     socket.on('quantum_stream', (data) => {
-      const ticker = document.getElementById('quantumTicker');
       if (!ticker) return;
-      const bitSpan = document.createElement('span');
-      bitSpan.textContent = String(data.bits).replace(/[^01]/g, '');
-      ticker.appendChild(bitSpan);
-      
-      // Maintain a window of the last 128 bits (16 frames)
-      if (ticker.childNodes.length > 16) {
-        ticker.removeChild(ticker.firstChild);
-      }
+      const newBits = String(data.bits).replace(/[^01]/g, '');
+      // Slide the window: append new bits to end, slice old bits from start
+      bitStream = (bitStream + newBits).slice(-bitWidth);
+      ticker.textContent = bitStream;
     });
 
     async function transmitMessage(senderName, senderEmail, text) {
